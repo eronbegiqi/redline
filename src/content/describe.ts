@@ -191,12 +191,12 @@ function segments(el: Element, scope: Scope | null, mode: Mode): string[] {
   for (let n: Element | null = el; n; n = n.parentElement) {
     const a = scope && n !== el ? anchor(n, scope) : null
     if (a) {
-      out.unshift(a)
+      out.push(a)
       break
     }
-    out.unshift(segment(n, mode))
+    out.push(segment(n, mode))
   }
-  return out
+  return out.reverse()
 }
 
 function segment(node: Element, mode: Mode): string {
