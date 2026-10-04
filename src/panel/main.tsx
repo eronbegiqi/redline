@@ -4,7 +4,12 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 import App from "./App.tsx"
 
-// STUB main - "panel shell" agent owns this file (theme handling etc.)
+// Follow the OS colour scheme live (the iframe has its own origin, so the host page's theme is irrelevant).
+const dark = matchMedia("(prefers-color-scheme: dark)")
+const applyTheme = () => document.documentElement.classList.toggle("dark", dark.matches)
+applyTheme()
+dark.addEventListener("change", applyTheme)
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

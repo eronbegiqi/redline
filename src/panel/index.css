@@ -127,4 +127,13 @@
   html {
     @apply font-sans;
     }
-}
+  html {
+    color-scheme: light;
+    }
+  html.dark {
+    color-scheme: dark;
+    }
+  html, body, #root {
+    @apply h-full overflow-hidden;
+    }
+  }
