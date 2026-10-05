@@ -61,3 +61,7 @@ The panel is React with shadcn/ui and lucide-react. The toolbar icon is the luci
 PNG. The module contract and architecture are in [`docs/SPEC.md`](docs/SPEC.md); the entry points are
 `src/content/index.ts` (controller), `src/content/frame.ts` (shadow host and panel iframe) and
 `src/background.ts`.
+
+## License
+
+[MIT](LICENSE)
