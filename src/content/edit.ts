@@ -1,5 +1,5 @@
 import { describe, elementId, placementOf } from "@/content/describe"
-import { settleStyleAttr, suppress } from "@/content/guard"
+import { settleStyleAttr, styleAttrBefore, suppress } from "@/content/guard"
 import type { Recorder } from "@/shared/recorder"
 import { STYLE_PROPS, type StyleProp } from "@/shared/types"
 
@@ -37,7 +37,6 @@ export function setStyle(
     const prevValue = style.getPropertyValue(prop)
     const prevPriority = style.getPropertyPriority(prop)
     const hadInline = prevValue !== ""
-    const prevAttr = el.getAttribute("style")
     if (v === "" && !hadInline) return // nothing to remove
     if (v !== "") {
       // The browser silently drops invalid values; don't log a change that never happened.
@@ -51,6 +50,7 @@ export function setStyle(
     const after = v === "" ? null : v
     if (after !== null && norm(before) === norm(after)) return
     const target = describe(el)
+    const prevAttr = styleAttrBefore(el)
     // "important" so the preview beats stylesheet rules; the log keeps the plain value.
     suppress(() =>
       after === null

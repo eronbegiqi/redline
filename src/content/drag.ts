@@ -427,6 +427,8 @@ export function createDragger(opts: DraggerOptions): DraggerApi {
     on("pointerdown", (e) => {
       if (isOurs(e.target)) return
       swallow(e)
+      // The swallowed mousedown cannot move focus, so it would stay in the panel iframe and Esc would never reach the drag.
+      ;(root.activeElement as HTMLElement | null)?.blur()
       if (pending || drag || !e.isPrimary || e.button !== 0 || !(e.target instanceof Element)) return
       const el = outerSvg(e.target)
       if (el === document.documentElement || el === document.body) return

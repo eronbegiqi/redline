@@ -22,6 +22,17 @@ export function suppress<T>(fn: () => T): T {
 
 export const isSuppressed = () => depth > 0
 
+// The `style` attribute as it was before the first still-live edit of an element. Reverts may run in any order, so the
+// attribute can only be put back exactly by the revert that empties the element's inline style, and that one needs the
+// ORIGINAL text, not the text before its own edit.
+const firstAttr = new WeakMap<Element, string | null>()
+
+/** Call BEFORE an edit writes inline style. `current` = the attribute right now (a DevTools observer passes the record's old value). */
+export function styleAttrBefore(el: Element, current: string | null = el.getAttribute("style")): string | null {
+  if (!firstAttr.has(el)) firstAttr.set(el, current)
+  return firstAttr.get(el)!
+}
+
 /**
  * After a revert has put the declarations back, make the `style` attribute itself match the original too.
  * `original` is the attribute's text before our edit (null = there was none). Call inside suppress().
@@ -32,6 +43,7 @@ export const isSuppressed = () => depth > 0
 export function settleStyleAttr(el: Element, original: string | null): void {
   const style = (el as HTMLElement).style as CSSStyleDeclaration | undefined
   if (!style) return
+  if (!style.length) firstAttr.delete(el) // nothing of ours left on it: the next edit starts afresh
   if (original === null) {
     if (style.length) return
     el.getAttribute("style")

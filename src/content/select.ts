@@ -1,6 +1,6 @@
 import { describe, elementId } from "@/content/describe"
 import { recordText, setStyle } from "@/content/edit"
-import { settleStyleAttr, suppress } from "@/content/guard"
+import { settleStyleAttr, styleAttrBefore, suppress } from "@/content/guard"
 import type { Recorder } from "@/shared/recorder"
 import type { Mode } from "@/shared/types"
 
@@ -562,7 +562,7 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       ex: content ? n("padding-left") + n("padding-right") + n("border-left-width") + n("border-right-width") : 0,
       ey: content ? n("padding-top") + n("padding-bottom") + n("border-top-width") + n("border-bottom-width") : 0,
       orig: { width: keep("width"), height: keep("height") },
-      prevStyleAttr: el.getAttribute("style"),
+      prevStyleAttr: styleAttrBefore(el),
     }
     // Covers the page while dragging: keeps the resize cursor and stops page hover effects.
     shield.style.cursor = cursor

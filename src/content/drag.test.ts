@@ -528,6 +528,16 @@ describe("createDragger flow (mocked layout)", () => {
     expect(document.body.innerHTML).toBe(before)
   })
 
+  it("pointerdown on the page takes focus back from our panel (real-browser regression: Esc must reach the drag)", () => {
+    dragger.setActive(true)
+    const input = document.createElement("input")
+    root.append(input)
+    input.focus()
+    expect(root.activeElement).toBe(input)
+    ptr("pointerdown", $("a"), 5, 5)
+    expect(root.activeElement).toBeNull()
+  })
+
   it("Esc while idle is not swallowed", () => {
     dragger.setActive(true)
     expect(key("Escape").defaultPrevented).toBe(false)

@@ -80,6 +80,14 @@ describe("ChangesTab", () => {
     )
   })
 
+  it("keeps the selector in reading order inside the rtl ellipsis box (real-browser regression: #id showed as id#)", () => {
+    const state = sample()
+    mount(state)
+    const title = host.querySelector('[data-slot="item-title"] bdi')
+    expect(title?.getAttribute("dir")).toBe("ltr")
+    expect(title?.textContent).toBe(state.changes[0].target.selector)
+  })
+
   it("row revert button sends the change id", () => {
     const { send, button, click } = mount(sample())
     click(button("Revert this change"))

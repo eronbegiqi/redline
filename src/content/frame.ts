@@ -65,7 +65,9 @@ export function createFrame(): Frame {
   const iframe = document.createElement("iframe")
   iframe.src = src
   iframe.title = "Redline"
-  iframe.setAttribute("allow", "clipboard-write")
+  // Not the bare token: it means "the iframe's src origin", which is the use_dynamic_url alias, not the real origin of the
+  // document that loads (the clipboard API stayed blocked by permissions policy in a real browser).
+  iframe.setAttribute("allow", `clipboard-write ${origin}`)
   iframe.style.cssText = IFRAME_CSS
 
   let port: MessagePort | null = null

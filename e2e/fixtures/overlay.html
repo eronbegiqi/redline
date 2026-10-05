@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Overlay + churn fixture</title>
+<style>
+  body { margin: 0; font: 16px system-ui; }
+  main { padding: 24px; width: 700px; }
+  #veil { position: fixed; inset: 0; z-index: 2147483647; background: rgba(0,0,0,.25); display: flex; align-items: flex-start; justify-content: flex-start; padding: 200px 0 0 40px; box-sizing: border-box; }
+  #veil-btn { position: relative; z-index: 2147483647; padding: 10px 18px; font-size: 18px; }
+  #churn { margin-top: 16px; }
+  #bag { list-style: none; padding: 0; }
+</style></head>
+<body>
+<main>
+  <h1 id="title">Overlay fixture</h1>
+  <p id="churn">Churning element</p>
+  <ul id="bag"><li>a</li><li>b</li><li>c</li></ul>
+</main>
+<div id="veil"><button id="veil-btn" type="button">Modal button</button></div>
+<script>
+  window.__log = []
+  document.getElementById("veil-btn").addEventListener("click", () => window.__log.push("veil-click"))
+  let n = 0
+  if (location.search.includes("churn")) setInterval(() => {
+    n++
+    document.getElementById("churn").style.color = n % 2 ? "red" : "blue"
+    document.getElementById("churn").setAttribute("data-tick", String(n))
+    for (const li of document.querySelectorAll("li")) li.setAttribute("data-n", String(n))
+    const bag = document.getElementById("bag")
+    if (n % 2) { const li = document.createElement("li"); li.textContent = "t" + n; bag.append(li) } else bag.lastElementChild.remove()
+    document.querySelectorAll("*").length
+  }, 50)
+</script>
+</body></html>

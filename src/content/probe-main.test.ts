@@ -84,6 +84,16 @@ describe("stackFrame (React 19 _debugStack)", () => {
     expect(stackFrame(vite)).toEqual({ file: "src/components/CtaButton.tsx", line: 42, column: 7 })
   })
 
+  it("skips React's element factory even when it sits in the app's own bundle (real-browser regression)", () => {
+    const s = [
+      "Error: react-stack-top-frame",
+      "    at exports.jsxDEV (http://localhost:1/react-app.js:23792:33)",
+      "    at CtaButton (http://localhost:1/react-app.js:23824:62)",
+      "    at Object.react_stack_bottom_frame (http://localhost:1/react-app.js:21557:22)",
+    ].join("\n")
+    expect(stackFrame(s)).toEqual({ file: "react-app.js", line: 23824, column: 62 })
+  })
+
   it("keeps a Vite /@fs/ file outside the root as an absolute path", () => {
     const s = "Error\n    at jsxDEV (http://x/node_modules/react/jsx-dev-runtime.js:1:1)\n    at Hero (http://localhost:5173/@fs/Users/me/mono/ui/Hero.tsx?t=5:10:3)"
     expect(stackFrame(s)).toEqual({ file: "/Users/me/mono/ui/Hero.tsx", line: 10, column: 3 })

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { settleStyleAttr } from "@/content/guard"
+import { settleStyleAttr, styleAttrBefore } from "@/content/guard"
 
 const el = (html: string) => {
   document.body.innerHTML = html
@@ -57,5 +57,31 @@ describe("settleStyleAttr", () => {
 
   it("never throws on elements without a style object", () => {
     expect(() => settleStyleAttr(document.createElementNS("http://www.w3.org/1999/xhtml", "x-y"), null)).not.toThrow()
+  })
+
+  it("restores the original attribute when edits are reverted in any order (real-browser regression: style=\"\" residue)", () => {
+    const p = el("<p>x</p>")
+    const orig = styleAttrBefore(p) // edit 1: width
+    p.style.width = "1px"
+    const prev2 = styleAttrBefore(p) // edit 2: color, sees the same original
+    p.style.color = "red"
+    expect(prev2).toBe(orig)
+    // revert edit 1 first (not LIFO)
+    p.style.removeProperty("width")
+    settleStyleAttr(p, orig)
+    expect(p.getAttribute("style")).toBe("color: red;")
+    p.style.removeProperty("color")
+    settleStyleAttr(p, prev2)
+    expect(p.outerHTML).toBe("<p>x</p>")
+  })
+
+  it("forgets the original once the inline style is empty again", () => {
+    const p = el("<p>x</p>")
+    styleAttrBefore(p)
+    p.style.color = "red"
+    p.style.removeProperty("color")
+    settleStyleAttr(p, null)
+    p.setAttribute("style", "margin: 0px;")
+    expect(styleAttrBefore(p)).toBe("margin: 0px;")
   })
 })

@@ -172,9 +172,10 @@ function ChangeRow({
           className="flex w-full min-w-0 font-mono text-xs"
           title={c.target.selector}
         >
-          {/* rtl puts the ellipsis on the left so the leaf end of long selectors stays visible; the trailing LRM stops a final ")" from jumping to the other side. */}
+          {/* rtl puts the ellipsis on the left so the leaf end of long selectors stays visible; the ltr <bdi> keeps the
+              characters in reading order (a leading "#" or a trailing ")" would otherwise jump to the other side). */}
           <span className="truncate text-left [direction:rtl]">
-            {c.target.selector}&lrm;
+            <bdi dir="ltr">{c.target.selector}</bdi>
           </span>
         </ItemTitle>
         <ItemDescription className="truncate" title={summarize(c)}>

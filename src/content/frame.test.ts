@@ -60,7 +60,7 @@ describe("createFrame", () => {
     expect(f.host.shadowRoot).toBeNull() // closed: the page cannot reach in
     const el = iframeOf(f)
     expect(el.getAttribute("src")).toBe(`${ALIAS}/panel.html`)
-    expect(el.getAttribute("allow")).toBe("clipboard-write")
+    expect(el.getAttribute("allow")).toBe(`clipboard-write ${ORIGIN}`)
   })
 
   it("sits bottom-right at 360 x min(640, vh - 32) with a 16px margin", () => {

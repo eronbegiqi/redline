@@ -4,7 +4,7 @@ import {
   placementOf,
   redescribe,
 } from "@/content/describe"
-import { onSuppressFlush, settleStyleAttr, suppress } from "@/content/guard"
+import { onSuppressFlush, settleStyleAttr, styleAttrBefore, suppress } from "@/content/guard"
 import type { Recorder } from "@/shared/recorder"
 import type { ChangeBody, Descriptor, Placement } from "@/shared/types"
 
@@ -357,12 +357,13 @@ function styleChanges(
     const x = a.get(prop)
     const y = b.get(prop)
     if (x?.value === y?.value && x?.priority === y?.priority) continue
+    const first = styleAttrBefore(el, before)
     const revert = () =>
       suppress(() => {
         if (x) style.setProperty(prop, x.value, x.priority)
         else style.removeProperty(prop)
         // Only the last revert of a multi-property edit finds the declarations equal to `before` again.
-        settleStyleAttr(el, before)
+        settleStyleAttr(el, first)
       })
     push(
       c,

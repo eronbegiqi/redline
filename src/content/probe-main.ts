@@ -44,6 +44,9 @@ export function cleanFile(raw: string): string {
 // skips the function name up to the first " (" so webpack urls like "…///(app-pages-browser)/…" survive.
 const FRAME = /^\s*at\s+(?:.*?\s\()?(.+?):(\d+):(\d+)\)?\s*$/
 const LIBRARY = /node_modules|react-dom|\s|^</ // whitespace/"<anonymous>": eval frames, not a file
+// React's element factory. In a single-file dev bundle (esbuild, ...) it lives in the app's own file, so the file test
+// cannot tell it from user code: its frame would be reported as the element's source.
+const REACT_FN = /^\s*at\s+(?:new\s+)?(?:[\w$]+\.)*(?:jsxDEV(?:Impl)?|jsxsDEV|jsxs?|createElement|cloneElement)\s\(/
 
 /**
  * First frame of a React 19 `_debugStack` that is not React/library code. Positions are those of the
@@ -52,7 +55,7 @@ const LIBRARY = /node_modules|react-dom|\s|^</ // whitespace/"<anonymous>": eval
 export function stackFrame(stack: unknown): Loc | undefined {
   if (typeof stack !== "string") return undefined
   for (const line of stack.split("\n")) {
-    const m = FRAME.exec(line)
+    const m = REACT_FN.test(line) ? null : FRAME.exec(line)
     if (m && !LIBRARY.test(m[1])) return { file: cleanFile(m[1]), line: +m[2], column: +m[3] }
   }
   return undefined
