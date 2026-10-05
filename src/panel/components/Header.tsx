@@ -1,5 +1,6 @@
 import { useRef, type PointerEvent } from "react"
 import {
+  CircleHelpIcon,
   HandIcon,
   MousePointer2Icon,
   MoveIcon,
@@ -28,7 +29,11 @@ const MODES: { value: Mode; label: string; Icon: LucideIcon }[] = [
 
 const INTERACTIVE = "button, label, [role=radio], [role=switch]"
 
-export function Header({ state, send }: TabProps) {
+export function Header({
+  state,
+  send,
+  onHelp,
+}: TabProps & { onHelp?: () => void }) {
   const last = useRef<{ x: number; y: number } | null>(null)
 
   // Screen-space deltas: the frame moves under the pointer, so client coords would feed back on themselves.
@@ -117,6 +122,22 @@ export function Header({ state, send }: TabProps) {
           styles, added or removed nodes). Off by default.
         </TooltipContent>
       </Tooltip>
+
+      {onHelp && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Show walkthrough"
+              onClick={onHelp}
+            >
+              <CircleHelpIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Walkthrough</TooltipContent>
+        </Tooltip>
+      )}
 
       <Tooltip>
         <TooltipTrigger asChild>

@@ -9,6 +9,7 @@ import { copyText, usePanel } from "@/panel/bridge"
 import { ChangesTab, type Prompt } from "@/panel/components/ChangesTab"
 import { EditTab } from "@/panel/components/EditTab"
 import { Header } from "@/panel/components/Header"
+import { Walkthrough, hasSeenWalkthrough } from "@/panel/components/Walkthrough"
 import { buildExport } from "@/shared/export"
 import type { PanelState } from "@/shared/types"
 
@@ -50,6 +51,7 @@ function Connecting() {
 export function App() {
   const { state, send } = usePanel()
   const [note, setNote] = useState("")
+  const [tour, setTour] = useState(() => !hasSeenWalkthrough())
   const prompt = useMemo(
     () => (state ? makePrompt(state, note) : { error: "no state" }),
     [state, note]
@@ -60,8 +62,8 @@ export function App() {
   const count = state.changes.length
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="flex h-svh flex-col bg-background text-foreground">
-        <Header state={state} send={send} />
+      <div className="relative flex h-svh flex-col bg-background text-foreground">
+        <Header state={state} send={send} onHelp={() => setTour(true)} />
 
         <Tabs defaultValue="edit" className="min-h-0 flex-1 gap-0">
           <div className="shrink-0 px-3 py-2">
@@ -91,6 +93,8 @@ export function App() {
             />
           </TabsContent>
         </Tabs>
+
+        {tour && <Walkthrough onClose={() => setTour(false)} />}
 
         <Footer
           disabled={!count || "error" in prompt}
