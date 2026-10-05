@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Northwind: Ship launches that land</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink:#14161f; --muted:#5b6070; --line:#e6e8ef; --brand:#2f6bff; --soft:#f4f6fb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; color:var(--ink); background:#fff; }
+  nav { display:flex; align-items:center; gap:28px; padding:20px 56px; border-bottom:1px solid var(--line); }
+  .logo { font-weight:800; font-size:20px; letter-spacing:-.02em; display:flex; align-items:center; gap:8px; }
+  .logo i { width:22px; height:22px; border-radius:7px; background:linear-gradient(135deg,#2f6bff,#7a5cff); display:inline-block; }
+  nav a { color:var(--muted); text-decoration:none; font-size:15px; }
+  nav .spacer { flex:1; }
+  .btn { display:inline-block; padding:12px 22px; border-radius:10px; font-weight:600; font-size:15px; text-decoration:none; border:1px solid var(--line); color:var(--ink); background:#fff; }
+  .btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  header.hero, section.features, section.plans { max-width:876px; }
+  header.hero { padding:72px 56px 56px; }
+  .eyebrow { display:inline-block; font-size:13px; font-weight:600; color:var(--brand); background:#eaf0ff; padding:5px 12px; border-radius:99px; margin-bottom:18px; }
+  h1 { font-size:54px; line-height:1.05; letter-spacing:-.035em; margin:0 0 18px; font-weight:800; }
+  .lead { font-size:19px; color:var(--muted); max-width:560px; margin:0 0 30px; }
+  .cta { display:flex; gap:12px; }
+  section.features { padding:12px 56px 40px; }
+  .cards { display:flex; gap:20px; }
+  .card { flex:1; background:var(--soft); border:1px solid var(--line); border-radius:16px; padding:24px; }
+  .card .ico { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:14px; }
+  .card h3 { margin:0 0 6px; font-size:18px; letter-spacing:-.01em; }
+  .card p { margin:0; color:var(--muted); font-size:15px; }
+  section.plans { padding:8px 56px 80px; }
+  section.plans h2 { font-size:26px; letter-spacing:-.02em; margin:0 0 14px; }
+  ul.list { list-style:none; margin:0; padding:0; max-width:620px; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  ul.list li { display:flex; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); font-size:15px; }
+  ul.list li:last-child { border-bottom:0; }
+  ul.list b { font-weight:600; }
+  ul.list span { color:var(--muted); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo"><i></i>Northwind</div>
+  <a href="#">Product</a><a href="#">Customers</a><a href="#">Pricing</a><a href="#">Docs</a>
+  <span class="spacer"></span>
+  <a href="#">Sign in</a>
+  <a class="btn" href="#">Book a demo</a>
+</nav>
+
+<header class="hero">
+  <span class="eyebrow">New: launch checklists</span>
+  <h1 id="headline">Ship launches that actually land.</h1>
+  <p class="lead">Northwind keeps product, design and marketing on one timeline, so every release goes out on time and on message.</p>
+  <div class="cta">
+    <a id="cta" class="btn primary" href="#">Start free trial</a>
+    <a class="btn" href="#">Watch the tour</a>
+  </div>
+</header>
+
+<section class="features">
+  <div class="cards" id="cards">
+    <div class="card" id="card-plan"><div class="ico" style="background:#e3ecff">🗓️</div><h3>Plan together</h3><p>One shared calendar for every launch, from beta to GA.</p></div>
+    <div class="card" id="card-track"><div class="ico" style="background:#e6f7ee">✅</div><h3>Track progress</h3><p>Checklists and owners keep nothing from slipping.</p></div>
+    <div class="card" id="card-announce"><div class="ico" style="background:#fff0e0">📣</div><h3>Announce it</h3><p>Drafts, approvals and channels in a single flow.</p></div>
+  </div>
+</section>
+
+<section class="plans">
+  <h2>Plans</h2>
+  <ul class="list" id="plans">
+    <li><b>Starter</b><span>$0 / month</span></li>
+    <li><b>Team</b><span>$12 / seat</span></li>
+    <li><b>Business</b><span>$24 / seat</span></li>
+    <li><b>Enterprise</b><span>Talk to us</span></li>
+  </ul>
+</section>
+</body>
+</html>

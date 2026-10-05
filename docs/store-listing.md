@@ -48,21 +48,20 @@ Good to know
 • Works in the top frame of a page, not inside embedded iframes.
 ```
 
-**Graphic assets**
+**Graphic assets** (generated; regenerate any time with `npm run screenshots`, which captures the real extension on the demo page `store/demo.html`)
 
-| Asset | Spec | Source |
+| Asset | Spec | File |
 |---|---|---|
 | Store icon | 128×128 PNG | `public/icons/icon-128.png` (already in the zip) |
-| Screenshots | 1280×800 (or 640×400), 1-5, PNG/JPEG, no rounded corners or borders | capture in real Chrome, see below |
-| Small promo tile | 440×280 PNG/JPEG | needed; make from a screenshot with the panel visible |
-| Marquee promo tile | 1400×560 | optional |
+| Screenshot 1 | 1280×800 | `store/screenshots/01-select-and-edit.png`: "Select anything and edit it visually" |
+| Screenshot 2 | 1280×800 | `store/screenshots/02-drag-and-drop.png`: "Drag and drop to reorder or move" |
+| Screenshot 3 | 1280×800 | `store/screenshots/03-changes.png`: "Every change is logged and revertible, including DevTools edits" |
+| Screenshot 4 | 1280×800 | `store/screenshots/04-prompt-preview.png`: "Copy a ready-made prompt for your AI" |
+| Screenshot 5 | 1280×800 | `store/screenshots/05-walkthrough.png`: "Up and running in a minute" |
+| Small promo tile | 440×280 | `store/screenshots/promo-small-440x280.png` |
+| Marquee promo tile | 1400×560 (optional) | `store/screenshots/promo-marquee-1400x560.png` |
 
-Suggested screenshots (each with the panel open on a real-looking page, 1280×800 window):
-1. Select mode: an element selected, panel on the Edit tab with style groups open. Caption: "Select anything and edit it visually"
-2. Drag & drop in progress with the drop indicator visible. Caption: "Drag and drop to reorder or move"
-3. Changes tab with a handful of changes. Caption: "Every change is logged and revertible"
-4. Changes tab with "Preview prompt" expanded. Caption: "Copy a ready-made prompt for your AI"
-5. The first-run walkthrough. Caption: "Up and running in a minute"
+All are 24-bit RGB PNGs with no alpha, as the store requires. The demo page is a fictional product ("Northwind"), so no real brand appears.
 
 **Support / homepage URL:** `<your repo or site URL>`
 
@@ -99,7 +98,7 @@ Check all three certifications (no sale of data, no unrelated use, no creditwort
 - [ ] Click through on a real site in real Chrome (toolbar click, select, edit, drag, Copy for AI, paste somewhere)
 - [ ] Decide whether `clipboardWrite` is needed (test Copy for AI without it) and update the manifest and the table above
 - [ ] Name is not taken in the store
-- [ ] Screenshots and promo tile created
+- [x] Screenshots and promo tiles generated (`npm run screenshots`)
 - [ ] Privacy policy hosted and linked; contact address filled in
 - [ ] Version bumped if re-uploading
 
