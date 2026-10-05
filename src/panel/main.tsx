@@ -6,7 +6,8 @@ import App from "./App.tsx"
 
 // Follow the OS colour scheme live (the iframe has its own origin, so the host page's theme is irrelevant).
 const dark = matchMedia("(prefers-color-scheme: dark)")
-const applyTheme = () => document.documentElement.classList.toggle("dark", dark.matches)
+const applyTheme = () =>
+  document.documentElement.classList.toggle("dark", dark.matches)
 applyTheme()
 dark.addEventListener("change", applyTheme)
 

@@ -3,7 +3,7 @@ import { useEffect, useId, useRef } from "react"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 
-import { useDraft, useEdit } from "./edit-context"
+import { useDraft, useEdit, useSettleOnUnmount } from "./edit-context"
 
 const DEBOUNCE_MS = 300
 // ElementInfo.text is cut at 2000 chars: writing a cut copy back would silently delete the rest.
@@ -12,7 +12,7 @@ const TEXT_CAP = 2000
 /** Text of a text-leaf element. Sends `setText` 300ms after the last keystroke, and on blur. */
 export function TextField() {
   const id = useId()
-  const { info, send } = useEdit()
+  const { info, setText } = useEdit()
   const d = useDraft(info.text, info)
   const timer = useRef<number>(0)
   const latest = useRef(d)
@@ -26,8 +26,10 @@ export function TextField() {
     const cur = latest.current
     if (text === cur.current) return cur.cancel()
     cur.commit(text)
-    send({ type: "setText", text })
+    setText(text)
   }
+  // The page swallows the click that selects another element, so this textarea never blurs: settle on unmount.
+  useSettleOnUnmount(d, flush)
   const tooLong = info.text.length >= TEXT_CAP
 
   return (

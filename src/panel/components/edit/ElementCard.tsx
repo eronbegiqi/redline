@@ -23,7 +23,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { ToContent } from "@/shared/protocol"
 import type { SourceHint } from "@/shared/types"
 
 import { useEdit } from "./edit-context"
@@ -40,10 +39,14 @@ function sourceLabel(s: SourceHint) {
   return component ? `${name} · ${component}` : name
 }
 
+function sourceWhere(s: SourceHint) {
+  return s.file ? `${s.file}${s.line ? `:${s.line}` : ""}` : ""
+}
+
 function sourceTitle(s: SourceHint) {
-  const where = s.file ? `${s.file}${s.line ? `:${s.line}` : ""}` : ""
   return (
-    [s.chain?.join(" › "), where].filter(Boolean).join("\n") || sourceLabel(s)
+    [s.chain?.join(" › "), sourceWhere(s)].filter(Boolean).join("\n") ||
+    sourceLabel(s)
   )
 }
 
@@ -94,11 +97,11 @@ function IconButton({
 }
 
 export function ElementCard() {
-  const { info, send } = useEdit()
+  const { info, act: send } = useEdit()
   const { descriptor: d, rect } = info
-  const act =
-    (action: Extract<ToContent, { type: "action" }>["action"]) => () =>
-      send({ type: "action", action })
+  const act = (action: Parameters<typeof send>[0]) => () => send(action)
+  const hidden = (info.classCount ?? d.classes.length) - d.classes.length
+  const where = d.source ? sourceWhere(d.source) : ""
 
   return (
     <Card size="sm">
@@ -135,12 +138,27 @@ export function ElementCard() {
         {d.classes.map((c) => (
           <Chip key={c} variant="outline">{`.${c}`}</Chip>
         ))}
+        {hidden > 0 && (
+          <Chip
+            variant="outline"
+            title={`${hidden} more ${hidden === 1 ? "class" : "classes"}`}
+          >{`+${hidden}`}</Chip>
+        )}
         {d.source && (
           <Chip variant="secondary" title={sourceTitle(d.source)}>
             {sourceLabel(d.source)}
           </Chip>
         )}
         <Chip variant="outline">{`${Math.round(rect.width)} × ${Math.round(rect.height)}`}</Chip>
+        {where && (
+          <p
+            className="w-full truncate font-mono text-xs text-muted-foreground"
+            title={where}
+            data-slot="element-source"
+          >
+            {where}
+          </p>
+        )}
       </CardContent>
       <CardFooter className="gap-2 p-2">
         <Button

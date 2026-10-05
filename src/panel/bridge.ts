@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react"
 
-import { createMockStore } from "@/panel/dev-mock"
 import type { ToContent, ToPanel } from "@/shared/protocol"
 import type { PanelState } from "@/shared/types"
 
@@ -22,9 +21,10 @@ type Win = Pick<Window, "addEventListener" | "removeEventListener">
 
 /**
  * Listens for the content script's `{redline:"init"}` message carrying a MessagePort and talks over that port.
- * Only the first init is accepted: later ones (e.g. from page scripts) are ignored.
+ * Only the first init is accepted, and only from `parent` (the embedding page's window) when given:
+ * later ones, or ones from any other window, are ignored.
  */
-export function createHostStore(win: Win): Store {
+export function createHostStore(win: Win, parent?: unknown): Store {
   let snap: Snapshot = { state: null, connected: false }
   let port: MessagePort | null = null
   const subs = new Set<() => void>()
@@ -34,12 +34,14 @@ export function createHostStore(win: Win): Store {
   }
 
   const onMessage = (e: Event) => {
-    const { data, ports } = e as MessageEvent
+    const { data, ports, source } = e as MessageEvent
+    if (parent !== undefined && source !== parent) return
     if (port || data?.redline !== "init" || !ports?.[0]) return
     win.removeEventListener("message", onMessage)
     port = ports[0]
     port.onmessage = (ev: MessageEvent<ToPanel>) => {
-      if (ev.data?.type === "state") set({ state: ev.data.state, connected: true })
+      if (ev.data?.type === "state")
+        set({ state: ev.data.state, connected: true })
     }
     set({ ...snap, connected: true })
     port.postMessage({ type: "ready" } satisfies ToContent)
@@ -56,9 +58,41 @@ export function createHostStore(win: Win): Store {
   }
 }
 
+/**
+ * Not embedded (`npm run dev` at /panel.html): fake page state from dev-mock, loaded on demand so it is its own
+ * chunk and never ships in the extension's main panel bundle.
+ */
+function createLazyMockStore(): Store {
+  let inner: Store | null = null
+  let snap: Snapshot = { state: null, connected: false }
+  const subs = new Set<() => void>()
+  const notify = () => subs.forEach((f) => f())
+  void import("@/panel/dev-mock").then(({ createMockStore }) => {
+    const mock = createMockStore()
+    inner = mock
+    snap = mock.get()
+    mock.subscribe(() => {
+      snap = mock.get()
+      notify()
+    })
+    notify()
+  })
+  return {
+    subscribe: (fn) => {
+      subs.add(fn)
+      return () => void subs.delete(fn)
+    },
+    get: () => snap,
+    send: (m) => inner?.send(m),
+  }
+}
+
 // Created at import time on purpose: the content script posts the init message on the iframe's `load`,
 // which can fire before React's first effect runs. Module scripts are guaranteed to run before `load`.
-const store: Store = window.parent === window ? createMockStore() : createHostStore(window)
+const store: Store =
+  window.parent === window
+    ? createLazyMockStore()
+    : createHostStore(window, window.parent)
 
 export function usePanel() {
   const { state, connected } = useSyncExternalStore(store.subscribe, store.get)

@@ -94,7 +94,7 @@ Deterministic Markdown (no clock, no randomness). Structure:
 # Redline: UI changes to apply
 
 **Page:** {title} - {url}
-**Viewport:** {w}×{h} · **Captured:** {capturedAt}
+**Viewport:** {w}×{h} · **Last change:** {capturedAt}
 
 Apply the changes below to this page's source code. Find each element using its component/source hint, selector or text.
 Values are computed CSS from the live page: translate them into the project's own styling approach (Tailwind classes, CSS modules,
@@ -196,7 +196,7 @@ Active only in `move` mode (`setActive(true)`).
   On failure (chrome:// pages etc.) set badge text `!` for 2s. No other permissions or listeners.
 - content `index.ts`: if `globalThis.__redline` exists → `toggle()` and return. Else build: host (`div[data-redline-host]`, `all: initial`, closed shadow root, appended to `<html>`), `Frame`, `Recorder`, `createSelector`,
   `createDragger`, observer wiring; subscribe `rec` → push state; push state on selection change / mode change / `onChanged`. `isOurs(x)`: `x === host` or `host.contains(x as Node)` or `composedPath().includes(host)`.
-- Controller state: `mode` (default `select`), `recording` (default false), `selected: Element | null`. Message handling: see `src/shared/protocol.ts`. `setStyle`/`setText`/`action` apply to `selected`.
+- Controller state: `mode` (default `select`), `recording` (default false), `selected: Element | null`. Message handling: see `src/shared/protocol.ts`. `setStyle`/`setText`/`action` carry the `el` (ElementInfo.el) of the element the edit was made for and apply to THAT element (resolved with `elementById`; unknown or detached ids are ignored), even if the selection has moved on since: only `parent`/`child`/`deselect`, and the selection changes after `delete`/`duplicate`, look at the current selection and run only when `el` still is the selection. The panel flushes any uncommitted draft with the old `el` when the selection changes or the Edit tab unmounts.
   `parent`/`child` change selection (child = first element child). After delete → select the parent; after duplicate → select the clone. `undo`/`revert`/`revertAll` wrap `suppress` (the Recorder reverts already do DOM writes; the controller calls them inside `suppress`).
   `close` hides the frame, sets mode `browse` (page works normally), disconnects observer. Toggle re-shows with the previous state.
 - `ElementInfo` is built with `edit.readStyles`, `describe`, `getBoundingClientRect`. Never send DOM nodes over the port.
@@ -207,8 +207,8 @@ Active only in `move` mode (`setActive(true)`).
 ## Panel UI (src/panel)
 
 360px wide, light/dark following `prefers-color-scheme` (toggle `dark` class on `<html>`; must also react to changes). Body has a solid `bg-background`. Everything shadcn + lucide-react.
-- **Bridge** (`bridge.ts`): `usePanel()` hook returns `{ state, send, connected }`. On mount, wait for `{redline:"init"}` window message **with a MessagePort**, accept the first one only, then `send({type:"ready"})`.
-  `send` is a no-op until connected. When not embedded (`window.parent === window`) use `dev-mock.ts` (rich fake state, `send` mutates it) so `npm run dev` at `/panel.html` shows a realistic UI.
+- **Bridge** (`bridge.ts`): `usePanel()` hook returns `{ state, send, connected }`. On mount, wait for `{redline:"init"}` window message **with a MessagePort**, accept the first one only and only when `e.source === window.parent`, then `send({type:"ready"})`. Without a first `state` for 5s the panel shows "Couldn't reach the page. Reload the tab and click the Redline icon again.".
+  `send` is a no-op until connected. When not embedded (`window.parent === window`) use `dev-mock.ts`, loaded with a dynamic `import()` so it is its own chunk (rich fake state, `send` mutates it) so `npm run dev` at `/panel.html` shows a realistic UI.
 - **Header** (also the drag handle: pointer-capture, post `moveFrame` with `screenX/screenY` deltas): app mark + "Redline", `ToggleGroup` for mode (lucide `MousePointer2`, `Move`, `Hand`; tooltips
   "Select & edit", "Drag & drop", "Browse (use the page normally)"), `Switch` "DevTools" (tooltip explaining it records edits made in DevTools; off by default), close button (`X`).
 - **Tabs**: `Edit` | `Changes` (with a count `Badge`). Footer is always visible: a primary **Copy for AI** button (`Copy` → `Check` for 2s; uses `navigator.clipboard.writeText`, falls back to `execCommand("copy")`; disabled when no changes).

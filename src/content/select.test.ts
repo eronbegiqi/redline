@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 import { Recorder } from "@/shared/recorder"
-import { createSelector, isTextLeaf, labelFor, nextSize, type SelectorApi } from "./select"
+import { startObserving, stopObserving } from "./observe"
+import { clipRect, createSelector, inertAt, isTextLeaf, labelFor, nextSize, type SelectorApi } from "./select"
 
 // jsdom has no layout, so boxes/handles/resize drags are verified in real Chromium (see the select-layer
 // harness notes in the PR). Here: the pure helpers plus the event wiring that does not need geometry.
@@ -232,6 +233,39 @@ describe("createSelector wiring", () => {
     expect(seen).not.toHaveBeenCalled()
   })
 
+  it("marks the element data-redline-editing while editing and removes the marker on commit, cancel and destroy", () => {
+    const h = document.getElementById("h")!
+    fire("dblclick", h)
+    expect(h.hasAttribute("data-redline-editing")).toBe(true)
+    key("Enter")
+    expect(h.hasAttribute("data-redline-editing")).toBe(false)
+    fire("dblclick", h)
+    key("Escape")
+    expect(h.hasAttribute("data-redline-editing")).toBe(false)
+    fire("dblclick", h)
+    sel.destroy()
+    expect(h.hasAttribute("data-redline-editing")).toBe(false)
+  })
+
+  it("typing in the in-page editor is not ALSO recorded by the DevTools observer (recording on)", async () => {
+    const devtools = new Recorder()
+    startObserving(devtools, (n) => n === host || host.contains(n))
+    try {
+      const h = document.getElementById("h")!
+      fire("dblclick", h)
+      h.firstChild!.nodeValue = "Hel"
+      h.textContent = "Typed" // the browser may replace the node
+      h.append(document.createElement("br"))
+      await new Promise<void>((r) => setTimeout(r, 0))
+      key("Enter")
+      await new Promise<void>((r) => setTimeout(r, 0))
+      expect(devtools.list()).toEqual([])
+      expect(rec.list()).toMatchObject([{ kind: "text", origin: "panel" }])
+    } finally {
+      stopObserving()
+    }
+  })
+
   it("destroy removes the overlay and every listener", () => {
     expect(root.querySelector(".layer")).not.toBeNull()
     sel.destroy()
@@ -254,5 +288,61 @@ describe("createSelector wiring", () => {
     sel.destroy()
     expect(h.textContent).toBe("Hello")
     expect(h.hasAttribute("contenteditable")).toBe(false)
+  })
+})
+
+// jsdom has no layout: give elements the geometry a browser would report. Real-Chromium checks cover the integration.
+const box = (el: Element, l: number, t: number, w: number, h: number, client = { w, h }) => {
+  el.getBoundingClientRect = () => ({ left: l, top: t, right: l + w, bottom: t + h, width: w, height: h, x: l, y: t, toJSON() {} }) as DOMRect
+  Object.defineProperty(el, "clientWidth", { value: client.w, configurable: true })
+  Object.defineProperty(el, "clientHeight", { value: client.h, configurable: true })
+}
+
+describe("clipRect", () => {
+  const setup = (inner = "") => {
+    document.body.innerHTML = `<div id="s" style="overflow-y:auto;overflow-x:hidden"><div id="w">${inner}<p id="t">x</p></div></div>`
+    return { s: document.getElementById("s")!, t: document.getElementById("t")! }
+  }
+  it("is null when no ancestor clips", () => {
+    document.body.innerHTML = "<div><p id='t'>x</p></div>"
+    expect(clipRect(document.getElementById("t")!)).toBeNull()
+  })
+  it("is the scroller's padding box (inside border and scrollbar)", () => {
+    const { s, t } = setup()
+    box(s, 100, 50, 210, 110, { w: 200, h: 100 })
+    Object.defineProperty(s, "clientLeft", { value: 3, configurable: true })
+    Object.defineProperty(s, "clientTop", { value: 4, configurable: true })
+    expect(clipRect(t)).toEqual({ l: 103, t: 54, r: 303, b: 154 })
+  })
+  it("intersects nested clipping ancestors", () => {
+    document.body.innerHTML = `<div id="a" style="overflow-x:hidden;overflow-y:hidden"><div id="b" style="overflow-x:hidden;overflow-y:hidden"><p id="t">x</p></div></div>`
+    box(document.getElementById("a")!, 0, 0, 100, 100)
+    box(document.getElementById("b")!, 50, 20, 100, 100)
+    expect(clipRect(document.getElementById("t")!)).toEqual({ l: 50, t: 20, r: 100, b: 100 })
+  })
+  it("a fixed element is not clipped; an absolute one skips non-positioned clippers only", () => {
+    document.body.innerHTML = `<div id="s" style="overflow-x:hidden;overflow-y:hidden"><p id="f" style="position:fixed">x</p><p id="a" style="position:absolute">y</p></div>`
+    const s = document.getElementById("s")!
+    box(s, 0, 0, 10, 10)
+    expect(clipRect(document.getElementById("f")!)).toBeNull()
+    expect(clipRect(document.getElementById("a")!)).toBeNull()
+    s.style.position = "relative"
+    expect(clipRect(document.getElementById("a")!)).toEqual({ l: 0, t: 0, r: 10, b: 10 })
+  })
+})
+
+describe("inertAt", () => {
+  it("returns the innermost inert descendant under the point, and only when the hit element contains the inert root", () => {
+    document.body.innerHTML = `<main id="m"><div id="i" inert><p id="p1">a</p><p id="p2">b</p></div></main><aside id="modal"></aside>`
+    const g = (id: string) => document.getElementById(id)!
+    box(g("i"), 0, 0, 100, 100)
+    box(g("p1"), 0, 0, 100, 20)
+    box(g("p2"), 0, 20, 100, 20)
+    expect(inertAt(g("m"), 10, 30)).toBe(g("p2"))
+    expect(inertAt(g("m"), 10, 5)).toBe(g("p1"))
+    expect(inertAt(g("m"), 10, 90)).toBe(g("i")) // inside the root, over no child
+    expect(inertAt(g("m"), 200, 5)).toBeNull() // outside the root
+    expect(inertAt(g("modal"), 10, 5)).toBeNull() // a modal drawn over the inert page
+    expect(inertAt(null, 0, 0)).toBeNull()
   })
 })

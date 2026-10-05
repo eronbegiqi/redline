@@ -8,7 +8,7 @@ import {
 } from "@/content/edit"
 import { suppress } from "@/content/guard"
 import { startObserving, stopObserving } from "@/content/observe"
-import type { Recorder } from "@/shared/recorder"
+import { Recorder as RealRecorder, type Recorder } from "@/shared/recorder"
 import type { Change, NewChange } from "@/shared/types"
 
 // Deterministic stand-ins for describe.ts. `selector` says whether the element was in the document when
@@ -16,11 +16,25 @@ import type { Change, NewChange } from "@/shared/types"
 vi.mock("@/content/describe", () => {
   const ids = new WeakMap<Element, string>()
   let n = 0
-  const desc = (el: Element) => ({
-    selector: `${el.isConnected ? "dom" : "detached"}:${el.localName}${el.id ? "#" + el.id : ""}`,
-    tag: el.localName,
-    classes: [...el.classList],
-  })
+  const desc = (el: Element) => {
+    const text = [...el.childNodes]
+      .filter((n) => n.nodeType === 3)
+      .map((n) => n.nodeValue)
+      .join(" ")
+      .trim()
+    const attrs = Object.fromEntries(
+      ["title", "href", "data-testid"]
+        .filter((a) => el.getAttribute(a))
+        .map((a) => [a, el.getAttribute(a)])
+    )
+    return {
+      selector: `${el.isConnected ? "dom" : "detached"}:${el.localName}${el.id ? "#" + el.id : ""}`,
+      tag: el.localName,
+      classes: [...el.classList],
+      ...(text ? { text } : {}),
+      ...(Object.keys(attrs).length ? { attrs } : {}),
+    }
+  }
   return {
     elementId: (el: Element) => {
       if (!ids.has(el)) ids.set(el, `e${++n}`)
@@ -200,7 +214,7 @@ describe("class attribute", () => {
     })
     expect(out[1]).toMatchObject({ kind: "class", added: ["c"], removed: [] })
     expect(out[0].target.classes).toEqual(["a", "b"]) // not the live ["b", "c"]
-    expect(out[1].target.classes).toEqual(["b"]) // state before THIS edit
+    expect(out[1].target.classes).toEqual(["a", "b"]) // the first-touch state, same as out[0]
   })
 
   it("does not touch the page DOM to work out the original classes", async () => {
@@ -435,6 +449,135 @@ describe("text", () => {
   })
 })
 
+describe("descriptor fidelity (the observer sees the element after DevTools edited it)", () => {
+  it("a text edit's target.text is the OLD text, and the live describe cache is untouched", async () => {
+    html(`<h1>Old title</h1>`)
+    start()
+    ;($("h1").firstChild as Text).data = "New title"
+    const [c] = await drain()
+    expect(c).toMatchObject({ kind: "text", before: "Old title", after: "New title" })
+    expect(c.target.text).toBe("Old title")
+  })
+
+  it("a replaced text node (textContent =) also reports the old text", async () => {
+    html(`<h1>Old title</h1>`)
+    start()
+    $("h1").textContent = "New title"
+    const [c] = await drain()
+    expect(c.target.text).toBe("Old title")
+  })
+
+  it("keeps the other text nodes of the element and chains edits to the first-touch text", async () => {
+    html(`<p>keep <b>x</b>edit</p>`)
+    start()
+    const t = $("p").lastChild as Text
+    t.data = "mid"
+    t.data = "last"
+    const out = await drain()
+    expect(out).toHaveLength(2)
+    for (const c of out) expect(c.target.text).toBe("keep edit")
+  })
+
+  it("an edit that empties the text still reports the old text; an edit that fills an empty element reports none", async () => {
+    html(`<p id="a">gone</p><p id="b"></p>`)
+    start()
+    $("#a").textContent = ""
+    $("#b").textContent = "new"
+    const out = await drain()
+    expect(out.map((c) => c.target.text)).toEqual(["gone", undefined])
+  })
+
+  it("an attribute change reports the original value; an added attribute is absent from target.attrs", async () => {
+    html(`<a href="/old" title="t">x</a>`)
+    start()
+    const a = $("a")
+    a.setAttribute("href", "/new")
+    a.removeAttribute("title")
+    a.setAttribute("data-testid", "added")
+    const out = await drain()
+    expect(out).toHaveLength(3)
+    // every change of the element shares the same first-touch picture
+    for (const c of out) expect(c.target.attrs).toEqual({ href: "/old", title: "t" })
+  })
+
+  it("an attribute edit in a LATER batch still sees the original of a first batch's edit", async () => {
+    html(`<a href="/old" title="t">x</a>`)
+    start()
+    const a = $("a")
+    a.setAttribute("href", "/new")
+    const [first] = await drain()
+    a.setAttribute("title", "t2")
+    const [second] = await drain()
+    expect(first.target.attrs).toEqual({ href: "/old", title: "t" })
+    expect(second.target.attrs).toEqual({ href: "/old", title: "t" })
+  })
+
+  it("an edited id puts the OLD id in the selector, without leaving a trace on the page or in the log", async () => {
+    html(`<p id="old">x</p>`)
+    start()
+    const p = $("p")
+    p.id = "new"
+    const [c, ...rest] = await drain()
+    expect(rest).toHaveLength(0)
+    expect(c).toMatchObject({ kind: "attr", name: "id", before: "old", after: "new" })
+    expect(c.target.selector).toBe("dom:p#old")
+    expect(p.id).toBe("new")
+    expect(await drain()).toHaveLength(0)
+  })
+
+  it("an id that was added reports a selector without it", async () => {
+    html(`<p>x</p>`)
+    start()
+    $("p").id = "fresh"
+    const [c] = await drain()
+    expect(c.target.selector).toBe("dom:p")
+  })
+
+  it("stopObserving forgets the originals", async () => {
+    html(`<a href="/old">x</a>`)
+    start()
+    $("a").setAttribute("href", "/b")
+    await drain()
+    stopObserving()
+    start()
+    $("a").setAttribute("href", "/c")
+    const [c] = await drain()
+    expect(c.target.attrs).toEqual({ href: "/b" })
+  })
+})
+
+describe("our in-page text editor", () => {
+  it("typing into an element marked data-redline-editing is never recorded, whatever its text nodes do", async () => {
+    html(`<h1 data-redline-editing="">Title</h1><h2 id="other">x</h2>`)
+    start()
+    const h = $("h1")
+    ;(h.firstChild as Text).data = "Titl"
+    h.textContent = "Typed"
+    h.appendChild(document.createElement("br"))
+    h.append("more")
+    h.setAttribute("title", "t")
+    expect(await drain()).toHaveLength(0)
+    $("#other").textContent = "y"
+    expect(await drain()).toHaveLength(1)
+  })
+
+  it("covers text nodes and elements nested inside the marked element", async () => {
+    html(`<div data-redline-editing=""><span>a</span></div>`)
+    start()
+    ;($("span").firstChild as Text).data = "b"
+    $("span").remove()
+    expect(await drain()).toHaveLength(0)
+  })
+
+  it("is recorded again once the marker is gone", async () => {
+    html(`<h1 data-redline-editing="">Title</h1>`)
+    start()
+    $("h1").removeAttribute("data-redline-editing")
+    ;($("h1").firstChild as Text).data = "x"
+    expect(await drain()).toHaveLength(1)
+  })
+})
+
 describe("element removal", () => {
   it("records a delete, described while still in the document, and revert re-inserts at the old slot", async () => {
     html(`<ul><li>a</li> t <li id="b">b</li> t2 <li>c</li></ul>`)
@@ -491,6 +634,34 @@ describe("element removal", () => {
     $("#u").remove()
     const out = await drain()
     expect(out.map((c) => c.target.selector)).toEqual(["dom:ul#u"])
+  })
+
+  it("reverting that outer delete brings the parent back WITH the earlier-removed child, in place", async () => {
+    html(`<div id="o"><ul id="u"><li id="a">a</li><li id="b">b</li><li id="c">c</li></ul></div>`)
+    start()
+    const before = $("#o").outerHTML
+    $("#b").remove()
+    $("#a").remove()
+    $("#u").remove()
+    const out = await drain()
+    expect(out).toHaveLength(1)
+    out[0].revert!()
+    expect($("#o").outerHTML).toBe(before)
+    expect(await drain()).toHaveLength(0)
+  })
+
+  it("a child that was added and then removed before its parent went is not resurrected", async () => {
+    html(`<div id="o"><ul id="u"><li id="a">a</li></ul></div>`)
+    start()
+    const before = $("#o").outerHTML
+    const li = document.createElement("li")
+    $("#u").append(li)
+    li.remove()
+    $("#u").remove()
+    const out = await drain()
+    expect(out).toHaveLength(1)
+    out[0].revert!()
+    expect($("#o").outerHTML).toBe(before)
   })
 
   it("drops attribute edits made to an element that is removed in the same batch", async () => {
@@ -631,6 +802,23 @@ describe("element move", () => {
     $("#u").appendChild(a)
     const out = await drain()
     expect(out.map((c) => c.kind)).toEqual(["move", "attr"]) // ordered by the first thing that happened to each
+  })
+})
+
+describe("panel edit that cancels itself out, with the observer running", () => {
+  it("setStyle then the original computed value: the Recorder runs the earliest revert, the DOM is pristine and the observer stays silent", async () => {
+    document.head.innerHTML = `<style>p{color: rgb(1, 2, 3)}</style>`
+    html(`<p>x</p>`)
+    start()
+    const panel = new RealRecorder()
+    const p = $("p")
+    const orig = p.outerHTML
+    setStyle(panel, p, "color", "red")
+    expect(p.style.getPropertyValue("color")).toBe("red")
+    setStyle(panel, p, "color", "rgb(1, 2, 3)") // typed the original computed value back
+    expect(panel.list()).toEqual([])
+    expect(p.outerHTML).toBe(orig) // no inline !important residue, no style=""
+    expect(await drain()).toHaveLength(0)
   })
 })
 

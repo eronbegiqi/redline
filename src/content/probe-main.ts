@@ -19,14 +19,25 @@ const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : u
 // React
 
 /**
- * Bundler URL -> project-ish path: drops origin, ?t=123 / ?v=abc, #hash, webpack-internal layers,
- * a leading ./ and Vite's /@fs/ prefix (which maps to an absolute filesystem path).
+ * Bundler URL -> project-ish path. Drops origin, ?query and #hash, file:// and webpack(-internal):// schemes,
+ * webpack loader layers like "(app-pages-browser)/", a leading ./ and Vite's /@fs/ (an absolute filesystem path)
+ * and /@id/ (a module id) prefixes. Absolute paths stay absolute; a Windows "/C:/x" becomes "C:/x".
  */
 export function cleanFile(raw: string): string {
-  let f = raw.replace(/[?#].*$/, "")
-  if (f.startsWith("file://")) f = f.slice(7)
+  let f = raw.trim().replace(/[?#].*$/, "")
+  if (f.startsWith("file://")) f = f.slice(7).replace(/^localhost(?=\/)/i, "")
   else f = f.replace(/^[a-z][a-z\d+.-]*:\/\/[^/]*\/?/i, "")
-  return f.replace(/^\([^)]*\)\//, "").replace(/^\/?@fs\//, "/").replace(/^(\.\/)+/, "")
+  try {
+    f = decodeURIComponent(f) // "%20" in a path, which is how the browser reports it
+  } catch {
+    // stray % in a file name: keep it raw
+  }
+  return f
+    .replace(/^\([^)]*\)\//, "")
+    .replace(/^\/?@fs\//, "/")
+    .replace(/^\/?@id\/(?:__x00__)?/, "")
+    .replace(/^\/(?=[a-z]:[\\/])/i, "")
+    .replace(/^(\.\/)+/, "")
 }
 
 // Chrome frames: "at fn (url:1:2)", "at url:1:2", "at async fn (url:1:2)". The optional group
@@ -72,7 +83,7 @@ export function fiberToHint(fiber: unknown): SourceHint | null {
   const src = rec(f._debugSource)
   const file = str(src?.fileName)
   const loc: Loc | undefined = file
-    ? { file, line: num(src?.lineNumber), column: num(src?.columnNumber) }
+    ? { file: cleanFile(file), line: num(src?.lineNumber), column: num(src?.columnNumber) }
     : stackFrame(rec(f._debugStack)?.stack)
   // The owner chain names the component whose render produced the element, which is the one
   // `loc` points into (children passed through <Card> are owned by the caller, not by Card).
@@ -95,7 +106,8 @@ export function vueToHint(vm: unknown): SourceHint | null {
     const name = str(opts(i)?.name) ?? str(opts(i)?.__name)
     if (name && name !== names.at(-1)) names.push(name)
   }
-  const file = str(opts(rec(vm))?.__file) // only the nearest component's file: a parent's would mislead
+  const rawFile = str(opts(rec(vm))?.__file)
+  const file = rawFile && cleanFile(rawFile) // only the nearest component's file: a parent's would mislead
   if (!names.length && !file) return null
   return { framework: "vue", component: names[0], chain: names.length ? names : undefined, file }
 }
@@ -110,7 +122,7 @@ export function svelteToHint(meta: unknown): SourceHint | null {
   return {
     framework: "svelte",
     component: file.split(/[\\/]/).pop()?.replace(/\.svelte$/, "") || undefined,
-    file,
+    file: cleanFile(file),
     line: line === undefined ? undefined : line + ("char" in loc ? 1 : 0),
     column: column === undefined ? undefined : column + 1,
   }

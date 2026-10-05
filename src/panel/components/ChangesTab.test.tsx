@@ -9,7 +9,9 @@ import type { ToContent } from "@/shared/protocol"
 import type { PanelState } from "@/shared/types"
 
 beforeAll(() => {
-  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  ;(
+    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true
   // Radix ScrollArea needs it; jsdom has none.
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -33,13 +35,23 @@ function mount(state: PanelState, prompt: Prompt = { text: "# prompt" }) {
   act(() =>
     root!.render(
       <TooltipProvider>
-        <ChangesTab state={state} send={send} note="" onNoteChange={onNoteChange} prompt={prompt} />
+        <ChangesTab
+          state={state}
+          send={send}
+          note=""
+          onNoteChange={onNoteChange}
+          prompt={prompt}
+        />
       </TooltipProvider>
     )
   )
   const button = (name: string) =>
-    [...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === name || b.getAttribute("aria-label") === name)
-  const click = (el: Element | undefined) => act(() => el!.dispatchEvent(new MouseEvent("click", { bubbles: true })))
+    [...host.querySelectorAll("button")].find(
+      (b) =>
+        b.textContent?.trim() === name || b.getAttribute("aria-label") === name
+    )
+  const click = (el: Element | undefined) =>
+    act(() => el!.dispatchEvent(new MouseEvent("click", { bubbles: true })))
   return { send, onNoteChange, button, click }
 }
 
@@ -57,9 +69,15 @@ describe("ChangesTab", () => {
     mount(state)
     const rows = host.querySelectorAll('[data-slot="item"]')
     expect(rows).toHaveLength(state.changes.length)
-    expect(rows[0].textContent).toContain("background-color: rgb(0, 0, 0) → rgb(59, 130, 246)")
-    const badges = [...host.querySelectorAll('[data-slot="badge"]')].map((b) => b.textContent)
-    expect(badges).toEqual(state.changes.filter((c) => c.origin === "devtools").map(() => "DevTools"))
+    expect(rows[0].textContent).toContain(
+      "background-color: rgb(0, 0, 0) → rgb(59, 130, 246)"
+    )
+    const badges = [...host.querySelectorAll('[data-slot="badge"]')].map(
+      (b) => b.textContent
+    )
+    expect(badges).toEqual(
+      state.changes.filter((c) => c.origin === "devtools").map(() => "DevTools")
+    )
   })
 
   it("row revert button sends the change id", () => {
@@ -73,7 +91,9 @@ describe("ChangesTab", () => {
     const { send, button, click } = mount(state)
     click(button("Revert all"))
     expect(send).not.toHaveBeenCalled()
-    expect(host.textContent).toContain(`Revert all ${state.changes.length} changes?`)
+    expect(host.textContent).toContain(
+      `Revert all ${state.changes.length} changes?`
+    )
 
     click(button("Cancel"))
     expect(host.textContent).not.toContain("changes?")
@@ -89,11 +109,15 @@ describe("ChangesTab", () => {
     const open = (prompt: Prompt) => {
       const { button, click } = mount(sample(), prompt)
       click(button("Preview prompt"))
-      return host.querySelector<HTMLTextAreaElement>('textarea[aria-label="Prompt preview"]')?.value
+      return host.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Prompt preview"]'
+      )?.value
     }
     expect(open({ text: "# the prompt" })).toBe("# the prompt")
     act(() => root?.unmount())
     host.remove()
-    expect(open({ error: "not implemented" })).toBe("Preview unavailable: not implemented")
+    expect(open({ error: "not implemented" })).toBe(
+      "Preview unavailable: not implemented"
+    )
   })
 })

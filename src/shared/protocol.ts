@@ -13,11 +13,14 @@ export type ToContent =
   | { type: "ready" }
   | { type: "setMode"; mode: Mode }
   | { type: "setRecording"; on: boolean }
-  /** value "" removes the inline property. Applies to the current selection. */
-  | { type: "setStyle"; prop: string; value: string }
-  /** Replaces text of a text-leaf selection. */
-  | { type: "setText"; text: string }
-  | { type: "action"; action: "delete" | "hide" | "duplicate" | "parent" | "child" | "deselect" }
+  // The three edit messages below carry the id (ElementInfo.el) of the element the edit was made for:
+  // a debounced or blur-committed edit can arrive after the selection moved on. Content applies it to THAT
+  // element (ignored when unknown or detached); only the selection-changing actions look at the current selection.
+  /** value "" removes the inline property. */
+  | { type: "setStyle"; el: string; prop: string; value: string }
+  /** Replaces text of a text-leaf element. */
+  | { type: "setText"; el: string; text: string }
+  | { type: "action"; el: string; action: "delete" | "hide" | "duplicate" | "parent" | "child" | "deselect" }
   /** Revert (DOM + log) the last entry. */
   | { type: "undo" }
   /** Revert (DOM + log) one entry by Change.id. */

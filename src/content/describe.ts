@@ -92,7 +92,47 @@ function attrsOf(el: Element): Record<string, string> | undefined {
 // ---------------------------------------------------------------------------------------------
 // Probe round trip (protocol in SPEC; the other end is probe-main.ts, which cannot share code with us)
 
-const FRAMEWORKS = ["react", "vue", "svelte"]
+const FRAMEWORKS: readonly string[] = ["react", "vue", "svelte"]
+const MAX_NAME = 80
+const MAX_CHAIN = 4
+const MAX_FILE = 300
+const MAX_POS = 10_000_000
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/
+
+const cleanString = (x: unknown, max: number): string | undefined =>
+  typeof x === "string" && !CONTROL.test(x) && x.trim() && x.trim().length <= max ? x.trim() : undefined
+const cleanInt = (x: unknown): number | undefined =>
+  typeof x === "number" && Number.isInteger(x) && x >= 0 && x <= MAX_POS ? x : undefined
+
+/**
+ * The probe answer travels through a DOM attribute that the page can also write (it can listen for
+ * "redline:probe" itself), so it is untrusted: rebuild a SourceHint from known fields only.
+ * Strings with control characters, over-long strings and out-of-range numbers are dropped, not trimmed.
+ */
+export function sanitizeHint(raw: unknown): SourceHint | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
+  const r = raw as Record<string, unknown>
+  const framework = typeof r.framework === "string" && FRAMEWORKS.includes(r.framework) ? (r.framework as SourceHint["framework"]) : undefined
+  if (!framework) return undefined
+  const hint: SourceHint = { framework }
+  const component = cleanString(r.component, MAX_NAME)
+  if (component) hint.component = component
+  if (Array.isArray(r.chain)) {
+    const chain = r.chain
+      .map((n) => cleanString(n, MAX_NAME))
+      .filter((n): n is string => !!n)
+      .slice(0, MAX_CHAIN)
+    if (chain.length) hint.chain = chain
+  }
+  const file = cleanString(r.file, MAX_FILE)
+  if (file) hint.file = file
+  const line = cleanInt(r.line)
+  if (line !== undefined) hint.line = line
+  const column = cleanInt(r.column)
+  if (column !== undefined) hint.column = column
+  return hint
+}
 
 function probe(el: Element): SourceHint | undefined {
   const root = document.documentElement
@@ -101,8 +141,7 @@ function probe(el: Element): SourceHint | undefined {
     el.setAttribute("data-redline-probe", "1")
     document.dispatchEvent(new CustomEvent("redline:probe")) // runs the MAIN-world listener synchronously
     const raw = root.getAttribute("data-redline-result")
-    const hint = raw ? (JSON.parse(raw) as SourceHint | null) : null
-    return hint && FRAMEWORKS.includes(hint.framework) ? hint : undefined
+    return raw ? sanitizeHint(JSON.parse(raw)) : undefined
   } catch {
     return undefined
   } finally {
@@ -117,23 +156,30 @@ function probe(el: Element): SourceHint | undefined {
 type Scope = ParentNode
 type Mode = "type" | "child"
 
+/** A readable path that still has to climb at least this far (when the DOM has that many levels). */
+const CONTEXT = 3
+/** An anchored path (#id > div > ul > li) is kept whole up to this many segments. */
+const MAX_ANCHORED = 6
+
 /**
  * Unique CSS selector for `el` right now: querySelectorAll(result) is exactly [el].
- * Order: unique #id / data-testid|test|cy, else a `>` path of tag:nth-of-type(n) segments that
- * climbs to the nearest unique anchor or <html> and is then trimmed to its shortest unique suffix.
+ * Order: unique #id / data-testid|test|cy on the element itself; else the `>` path of tag:nth-of-type(n)
+ * segments from the nearest unique anchor ancestor (kept whole up to 6 segments); else the last 3 segments,
+ * or more when that is the least that is unique. It reads like "main > ul > li:nth-of-type(2)": enough
+ * context for a human or an AI, not the shortest string that happens to match once.
  * Classes are deliberately absent: they are volatile.
  */
 export function selectorFor(el: Element): string {
   try {
     const scope = scopeOf(el)
     // Detached subtree: nothing to verify against, a root-relative path is the best we can do.
-    if (!scope) return segments(el, null, "type").join(" > ")
+    if (!scope) return segments(el, null, "type").segs.join(" > ")
     return (
       anchor(el, scope) ??
-      shortest(el, scope, segments(el, scope, "type")) ??
+      readable(el, scope, "type") ??
       // the engine counts same-type siblings differently from us (exotic namespaces): nth-child can't disagree
-      shortest(el, scope, segments(el, scope, "child")) ??
-      segments(el, scope, "child").join(" > ")
+      readable(el, scope, "child") ??
+      segments(el, scope, "child").segs.join(" > ")
     )
   } catch {
     return safe(() => el.localName, "*")
@@ -185,18 +231,20 @@ function anchor(node: Element, scope: Scope): string | null {
   return candidates.find((c) => isOnly(scope, c, node)) ?? null
 }
 
-/** Path segments from the outermost one down to `el`. */
-function segments(el: Element, scope: Scope | null, mode: Mode): string[] {
+/** Path segments from the outermost one down to `el`; `anchored` when the outermost one is an #id / data-testid ancestor. */
+function segments(el: Element, scope: Scope | null, mode: Mode): { segs: string[]; anchored: boolean } {
   const out: string[] = []
+  let anchored = false
   for (let n: Element | null = el; n; n = n.parentElement) {
     const a = scope && n !== el ? anchor(n, scope) : null
     if (a) {
       out.push(a)
+      anchored = true
       break
     }
     out.push(segment(n, mode))
   }
-  return out.reverse()
+  return { segs: out.reverse(), anchored }
 }
 
 function segment(node: Element, mode: Mode): string {
@@ -211,15 +259,27 @@ function segment(node: Element, mode: Mode): string {
   return same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(node) + 1})` : tag
 }
 
+/** Readable unique path, or null if even the whole path is not unique. */
+function readable(el: Element, scope: Scope, mode: Mode): string | null {
+  const { segs, anchored } = segments(el, scope, mode)
+  const k = uniqueSuffixLength(el, scope, segs)
+  if (k === null) return null
+  // A unique suffix stays unique when more ancestors are prepended, so any length >= k is safe, in theory:
+  // verify anyway (selector engines disagree about :nth-of-type across namespaces) and fall back to the proven k.
+  const n = anchored && segs.length <= MAX_ANCHORED ? segs.length : Math.max(k, Math.min(segs.length, CONTEXT))
+  let chosen = segs.slice(-n)
+  if (chosen.length > k && chosen[0] === "html") chosen = chosen.slice(1) // "html > body > …" adds nothing
+  const wanted = chosen.join(" > ")
+  return isOnly(scope, wanted, el) ? wanted : segs.slice(-k).join(" > ")
+}
+
 /**
- * Shortest unique suffix of the path, or null if even the whole path is not unique.
- * A suffix that is unique stays unique when you prepend more ancestors, so we can gallop (1, 2, 4, ...)
- * and then bisect: typical elements cost one or two cheap queries, and a 1000-deep document stays
- * logarithmic instead of 1000 full-document queries.
+ * Length of the shortest unique suffix of the path, or null if even the whole path is not unique.
+ * Uniqueness is monotone in the suffix length, so we gallop (1, 2, 4, ...) and then bisect: typical
+ * elements cost one or two cheap queries, and a 1000-deep document stays logarithmic.
  */
-function shortest(el: Element, scope: Scope, segs: string[]): string | null {
-  const suffix = (k: number) => segs.slice(-k).join(" > ")
-  const ok = (k: number) => isOnly(scope, suffix(k), el)
+function uniqueSuffixLength(el: Element, scope: Scope, segs: string[]): number | null {
+  const ok = (k: number) => isOnly(scope, segs.slice(-k).join(" > "), el)
   let lo = 0 // largest length known NOT to be unique
   let hi = 1
   while (!ok(hi)) {
@@ -232,5 +292,5 @@ function shortest(el: Element, scope: Scope, segs: string[]): string | null {
     if (ok(mid)) hi = mid
     else lo = mid
   }
-  return suffix(hi)
+  return hi
 }

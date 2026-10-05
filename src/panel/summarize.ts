@@ -3,7 +3,8 @@ import type { Change, Descriptor, Placement } from "@/shared/types"
 const clip = (s: string, n = 40) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
 /** `ul.list`, `li#x`, `div`: short human label for a parent. */
-const label = (d: Descriptor) => d.tag + (d.id ? `#${d.id}` : d.classes[0] ? `.${d.classes[0]}` : "")
+const label = (d: Descriptor) =>
+  d.tag + (d.id ? `#${d.id}` : d.classes[0] ? `.${d.classes[0]}` : "")
 
 const where = (p: Placement) => `${label(p.parent)}[${p.index}]`
 
@@ -17,7 +18,10 @@ export function summarize(c: Change): string {
     case "text":
       return `"${clip(c.before)}" → "${clip(c.after)}"`
     case "class":
-      return [...c.added.map((x) => `+${x}`), ...c.removed.map((x) => `-${x}`)].join(" ")
+      return [
+        ...c.added.map((x) => `+${x}`),
+        ...c.removed.map((x) => `-${x}`),
+      ].join(" ")
     case "move":
       return c.from.parent.selector === c.to.parent.selector
         ? `index ${c.from.index} → ${c.to.index} in ${label(c.to.parent)}`

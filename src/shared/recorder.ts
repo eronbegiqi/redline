@@ -113,6 +113,9 @@ function runReverts(reverts: Revert[]): void {
   }
 }
 
+const earliest = (reverts: Revert[]): Revert[] =>
+  reverts.length ? [reverts.reduce((a, b) => (b.seq < a.seq ? b : a))] : []
+
 export class Recorder {
   private entries: Entry[] = []
   private listeners = new Set<() => void>()
@@ -134,10 +137,13 @@ export class Recorder {
         ? undefined
         : this.entries.find((e) => keyOf(e.change) === key)
     const next = prev ? join(prev.change, draft) : draft
-    // Cancelled out: the DOM is already back to the original, so no reverts run.
+    // Cancelled out: the visible value is back to the original, but the DOM may still carry residue (an inline
+    // `!important` override that merely equals the computed value). The EARLIEST revert restores the pre-edit
+    // state exactly; the newer ones would only undo steps that no longer matter.
     if (isNoop(next)) {
       if (!prev) return null
       this.entries = this.entries.filter((e) => e !== prev)
+      runReverts(earliest(prev.reverts))
       this.emit()
       return null
     }

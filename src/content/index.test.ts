@@ -69,6 +69,21 @@ const select = async (el: Element | null) => {
   selectorOpts().onSelect(el)
   await tick()
 }
+/** Id of what the panel currently shows as selected (what its edit messages carry). */
+const selId = () => last().selection!.el
+/** Id of any element, from the describe instance the controller under test uses. */
+const idOf = async (el: Element) =>
+  (await import("@/content/describe")).elementId(el)
+const style = (el: string, prop: string, value: string): ToContent => ({
+  type: "setStyle",
+  el,
+  prop,
+  value,
+})
+const act = (
+  el: string,
+  action: Extract<ToContent, { type: "action" }>["action"]
+): ToContent => ({ type: "action", el, action })
 
 async function boot() {
   vi.resetModules()
@@ -192,9 +207,10 @@ describe("state", () => {
   it("coalesces a burst into one state message", async () => {
     await boot()
     await select($("#t"))
+    const el = selId()
     h.frame.post.mockClear()
-    send({ type: "setStyle", prop: "color", value: "red" })
-    send({ type: "setStyle", prop: "color", value: "blue" })
+    send(style(el, "color", "red"))
+    send(style(el, "color", "blue"))
     selectorOpts().onChanged()
     await tick()
     expect(h.frame.post).toHaveBeenCalledTimes(1)
@@ -227,7 +243,7 @@ describe("edits", () => {
     await boot()
     await select($("#t"))
     h.selector.refresh.mockClear()
-    send({ type: "setStyle", prop: "color", value: "red" })
+    send(style(selId(), "color", "red"))
     await tick()
     expect($("#t").style.getPropertyValue("color")).toBe("red")
     expect(last().changes).toMatchObject([
@@ -236,20 +252,24 @@ describe("edits", () => {
     expect(h.selector.refresh).toHaveBeenCalled()
   })
 
-  it("setStyle with nothing selected does nothing", async () => {
+  it("setStyle for an id nobody knows does nothing", async () => {
     await boot()
-    send({ type: "setStyle", prop: "color", value: "red" })
+    send(style("e99999", "color", "red"))
+    send({ type: "setText", el: "e99999", text: "x" })
+    send(act("e99999", "delete"))
     await tick()
+    expect(h.frame.post).not.toHaveBeenCalled()
+    send({ type: "ready" })
     expect(last().changes).toEqual([])
   })
 
   it("setText replaces a text leaf but never wipes a container", async () => {
     await boot()
     await select($("#t"))
-    send({ type: "setText", text: "Bye" })
+    send({ type: "setText", el: selId(), text: "Bye" })
     expect($("#t").textContent).toBe("Bye")
     await select($("#box"))
-    send({ type: "setText", text: "oops" })
+    send({ type: "setText", el: selId(), text: "oops" })
     expect($("#box").children).toHaveLength(2)
     await tick()
     expect(last().changes).toMatchObject([
@@ -260,13 +280,14 @@ describe("edits", () => {
   it("parent / child / deselect move the selection", async () => {
     await boot()
     await select($("#box"))
-    send({ type: "action", action: "child" })
+    send(act(selId(), "child"))
     expect(h.selector.select).toHaveBeenLastCalledWith($("#inner"))
-    send({ type: "action", action: "parent" })
+    await tick() // the panel learns the new selection (and its id) from the next state
+    send(act(selId(), "parent"))
     expect(h.selector.select).toHaveBeenLastCalledWith($("#box"))
     await tick()
     expect(last().selection?.descriptor.id).toBe("box")
-    send({ type: "action", action: "deselect" })
+    send(act(selId(), "deselect"))
     await tick()
     expect(last().selection).toBeNull()
     expect(h.selector.select).toHaveBeenLastCalledWith(null)
@@ -277,7 +298,7 @@ describe("edits", () => {
     document.documentElement.append(h.frame.host)
     const html = document.documentElement
     await select(html)
-    send({ type: "action", action: "child" })
+    send(act(selId(), "child"))
     expect(h.selector.select).toHaveBeenLastCalledWith(document.head)
     h.frame.host.remove()
   })
@@ -285,7 +306,7 @@ describe("edits", () => {
   it("delete removes the element and selects its parent", async () => {
     await boot()
     await select($("#a"))
-    send({ type: "action", action: "delete" })
+    send(act(selId(), "delete"))
     await tick()
     expect($("#a")).toBeNull()
     expect(last().selection?.descriptor.id).toBe("list")
@@ -295,16 +316,49 @@ describe("edits", () => {
   it("refuses to delete <body>", async () => {
     await boot()
     await select(document.body)
-    send({ type: "action", action: "delete" })
+    send(act(selId(), "delete"))
     await tick()
     expect(document.body.isConnected).toBe(true)
     expect(last().changes).toEqual([])
   })
 
+  it("refuses to hide or duplicate <html> and <body> too, as the panel's disabled buttons promise", async () => {
+    await boot()
+    for (const root of [document.body, document.documentElement]) {
+      await select(root)
+      expect(last().selection?.canDelete).toBe(false)
+      send(act(selId(), "hide"))
+      send(act(selId(), "duplicate"))
+      await tick()
+      expect(last().changes).toEqual([])
+      expect(root.getAttribute("style")).toBeNull()
+    }
+    expect(document.querySelectorAll("body")).toHaveLength(1)
+  })
+
+  it("canDelete / hasParent follow what the actions can really do for a shadow-root child", async () => {
+    await boot()
+    const shadow = $("#box").attachShadow({ mode: "open" })
+    const span = document.createElement("span")
+    span.textContent = "in shadow"
+    shadow.append(span)
+    await select(span)
+    expect(last().selection).toMatchObject({
+      canDelete: true,
+      hasParent: false,
+    })
+    send(act(selId(), "parent")) // nothing to select
+    send(act(selId(), "delete"))
+    await tick()
+    expect(span.isConnected).toBe(false)
+    expect(last().changes).toMatchObject([{ kind: "delete" }])
+    expect(last().selection).toBeNull() // no parent element to fall back to
+  })
+
   it("hide records display:none and keeps the selection", async () => {
     await boot()
     await select($("#a"))
-    send({ type: "action", action: "hide" })
+    send(act(selId(), "hide"))
     await tick()
     expect($("#a").style.getPropertyValue("display")).toBe("none")
     expect(last().changes).toMatchObject([
@@ -316,7 +370,7 @@ describe("edits", () => {
   it("duplicate inserts a clone and selects it", async () => {
     await boot()
     await select($("#a"))
-    send({ type: "action", action: "duplicate" })
+    send(act(selId(), "duplicate"))
     await tick()
     const clone = $("#a").nextElementSibling!
     expect(clone.tagName).toBe("LI")
@@ -337,12 +391,176 @@ describe("edits", () => {
   })
 })
 
+// The panel debounces text edits and commits inputs on blur, and the page swallows the click that selects
+// another element: so an edit routinely arrives after the selection has moved on.
+describe("late messages", () => {
+  async function twoSelections() {
+    await boot()
+    await select($("#a"))
+    const a = selId()
+    await select($("#b"))
+    h.selector.select.mockClear()
+    return a
+  }
+
+  it("setStyle for the previous element lands on it, not on the new selection", async () => {
+    const a = await twoSelections()
+    send(style(a, "color", "red"))
+    await tick()
+    expect($("#a").style.getPropertyValue("color")).toBe("red")
+    expect($("#b").style.getPropertyValue("color")).toBe("")
+    expect(last().changes).toMatchObject([
+      { kind: "style", el: a, prop: "color", after: "red" },
+    ])
+    expect(last().selection?.descriptor.id).toBe("b")
+  })
+
+  it("setText for the previous element lands on it, not on the new selection", async () => {
+    const a = await twoSelections()
+    send({ type: "setText", el: a, text: "late draft" })
+    await tick()
+    expect($("#a").textContent).toBe("late draft")
+    expect($("#b").textContent).toBe("Two")
+    expect(last().changes).toMatchObject([{ kind: "text", el: a }])
+    expect(last().selection?.descriptor.id).toBe("b")
+  })
+
+  it("hide / duplicate / delete act on the named element and leave the selection alone", async () => {
+    const a = await twoSelections()
+    send(act(a, "hide"))
+    expect($("#a").style.getPropertyValue("display")).toBe("none")
+    send(act(a, "duplicate"))
+    expect($("#a").nextElementSibling?.tagName).toBe("LI")
+    expect($("#a").nextElementSibling?.id).toBe("") // the clone has no id: #b is the one after it
+    send(act(a, "delete"))
+    await tick()
+    expect($("#a")).toBeNull()
+    expect(h.selector.select).not.toHaveBeenCalled()
+    expect(last().selection?.descriptor.id).toBe("b")
+  })
+
+  it("parent / child / deselect for the previous element do not move the selection", async () => {
+    const a = await twoSelections()
+    send(act(a, "parent"))
+    send(act(a, "child"))
+    send(act(a, "deselect"))
+    await tick()
+    expect(h.selector.select).not.toHaveBeenCalled()
+    expect(last().selection?.descriptor.id).toBe("b")
+  })
+
+  it("deleting a selected element selects its parent, and only then", async () => {
+    await boot()
+    await select($("#a"))
+    send(act(selId(), "delete"))
+    expect(h.selector.select).toHaveBeenLastCalledWith($("#list"))
+  })
+
+  it("duplicating a selected element selects the clone, but not when it is not the selection", async () => {
+    await boot()
+    await select($("#a"))
+    send(act(selId(), "duplicate"))
+    const clone = $("#a").nextElementSibling!
+    expect(h.selector.select).toHaveBeenLastCalledWith(clone)
+    await select($("#t"))
+    h.selector.select.mockClear()
+    send(act(await idOf($("#a")), "duplicate"))
+    expect(h.selector.select).not.toHaveBeenCalled()
+    await tick()
+    expect(last().selection?.descriptor.id).toBe("t")
+  })
+
+  it("a message for an element that left the page is dropped", async () => {
+    await boot()
+    await select($("#a"))
+    const a = selId()
+    const li = $("#a")
+    li.remove()
+    send(style(a, "color", "red"))
+    send({ type: "setText", el: a, text: "ghost" })
+    send(act(a, "duplicate"))
+    await tick()
+    expect(li.style.getPropertyValue("color")).toBe("")
+    expect(li.textContent).toBe("One")
+    expect(last().changes).toEqual([])
+    expect(document.querySelectorAll("#list li")).toHaveLength(1)
+  })
+})
+
+describe("the selected element is removed by the page", () => {
+  it("never builds the ElementInfo of a detached element", async () => {
+    await boot()
+    await select($("#a"))
+    const li = $("#a")
+    const styles = vi.spyOn(window, "getComputedStyle")
+    li.remove()
+    send({ type: "ready" }) // synchronous: no mutation microtask has run yet
+    expect(last().selection).toBeNull()
+    expect(styles.mock.calls.map((c) => c[0])).not.toContain(li)
+    styles.mockRestore()
+  })
+
+  it("close hides the panel and toggle brings it back", async () => {
+    const r = await boot()
+    await select($("#a"))
+    $("#a").remove()
+    send({ type: "close" })
+    expect(h.frame.hide).toHaveBeenCalledTimes(1)
+    expect(h.selector.setMode).toHaveBeenLastCalledWith("browse")
+    await tick()
+    expect(last()).toMatchObject({ mode: "browse", selection: null })
+
+    r.toggle()
+    expect(h.frame.show).toHaveBeenCalledTimes(1)
+    await tick()
+    expect(last()).toMatchObject({ mode: "select", selection: null })
+    r.toggle()
+    expect(h.frame.hide).toHaveBeenCalledTimes(2)
+  })
+
+  it("close hides the panel even when a layer throws while handling it", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const r = await boot()
+    await select($("#a"))
+    $("#a").remove()
+    h.selector.setMode.mockImplementationOnce(() => {
+      throw new Error("layer blew up")
+    })
+    send({ type: "close" })
+    expect(h.frame.hide).toHaveBeenCalledTimes(1)
+    r.toggle() // visible is false now: this re-opens instead of "closing twice"
+    expect(h.frame.show).toHaveBeenCalledTimes(1)
+  })
+
+  it("still tells the panel about an edit when the overlay refresh throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    await boot()
+    await select($("#t"))
+    h.selector.refresh.mockImplementationOnce(() => {
+      throw new Error("boom")
+    })
+    send(style(selId(), "color", "red"))
+    await tick()
+    expect(last().changes).toHaveLength(1)
+  })
+})
+
+describe("class count", () => {
+  it("reports every class even though the descriptor keeps 8", async () => {
+    await boot()
+    $("#t").className = "a b c d e f g h i j"
+    await select($("#t"))
+    expect(last().selection?.descriptor.classes).toHaveLength(8)
+    expect(last().selection?.classCount).toBe(10)
+  })
+})
+
 describe("undo / revert", () => {
   async function twoEdits() {
     await boot()
     await select($("#t"))
-    send({ type: "setStyle", prop: "color", value: "red" })
-    send({ type: "setText", text: "Bye" })
+    send(style(selId(), "color", "red"))
+    send({ type: "setText", el: selId(), text: "Bye" })
     await tick()
   }
 
@@ -369,7 +587,7 @@ describe("undo / revert", () => {
   it("reverting the duplicate that is selected clears the selection", async () => {
     await boot()
     await select($("#a"))
-    send({ type: "action", action: "duplicate" })
+    send(act(selId(), "duplicate"))
     await tick()
     send({ type: "revertAll" })
     await tick()

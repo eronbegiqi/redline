@@ -100,6 +100,7 @@ afterEach(() => {
   act(() => root.unmount())
   container.remove()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 const field = <T extends HTMLElement = HTMLInputElement>(name: string) => {
@@ -151,8 +152,9 @@ const blur = (el: HTMLElement) =>
   act(
     () => void el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }))
   )
-const style = (prop: string, value: string): ToContent => ({
+const style = (prop: string, value: string, el = "e1"): ToContent => ({
   type: "setStyle",
+  el,
   prop,
   value,
 })
@@ -195,10 +197,10 @@ describe("empty and card states", () => {
     for (const n of ["Select parent", "Duplicate", "Hide", "Delete"])
       act(() => button(n).click())
     expect(sent).toEqual([
-      { type: "action", action: "parent" },
-      { type: "action", action: "duplicate" },
-      { type: "action", action: "hide" },
-      { type: "action", action: "delete" },
+      { type: "action", el: "e1", action: "parent" },
+      { type: "action", el: "e1", action: "duplicate" },
+      { type: "action", el: "e1", action: "hide" },
+      { type: "action", el: "e1", action: "delete" },
     ])
     expect(button("Select first child").disabled).toBe(true)
 
@@ -324,13 +326,43 @@ describe("re-sync", () => {
     expect(sent).toEqual([style("font-size", "2px")])
   })
 
-  it("drops the draft and resets every field when the selection changes, sending nothing", () => {
+  it("resets every field when the selection changes and commits the old draft to the OLD element", () => {
     render(state(info()))
     type(size(), "99")
     render(state(info({ el: "e2" }, { "font-size": "12px" })))
     expect(size().value).toBe("12px")
     blur(size())
+    // The page swallows the click that picks the next element, so the input never blurred: the draft is flushed
+    // on the way out, addressed to e1, and nothing at all goes to e2.
+    expect(sent).toEqual([style("font-size", "99px", "e1")])
+  })
+
+  it("sends nothing on a selection change when nothing was typed", () => {
+    render(state(info()))
+    render(state(info({ el: "e2" }, { "font-size": "12px" })))
     expect(sent).toEqual([])
+  })
+
+  it("flushes a draft when the selection is cleared or the tab goes away", () => {
+    render(state(info()))
+    type(size(), "30")
+    render(state(null))
+    expect(sent).toEqual([style("font-size", "30px")])
+
+    sent = []
+    render(state(info()))
+    type(size(), "31")
+    act(() => root.unmount())
+    expect(sent).toEqual([style("font-size", "31px")])
+    root = createRoot(container)
+  })
+
+  it("flushes an uncommitted padding side with the old id when linked", () => {
+    render(state(info()))
+    type(field("Padding top"), "4")
+    render(state(info({ el: "e2" })))
+    expect(sent.every((m) => "el" in m && m.el === "e1")).toBe(true)
+    expect(sent.length).toBeGreaterThan(0)
   })
 })
 
@@ -479,7 +511,7 @@ describe("text field", () => {
     act(() => void vi.advanceTimersByTime(299))
     expect(sent).toEqual([])
     act(() => void vi.advanceTimersByTime(1))
-    expect(sent).toEqual([{ type: "setText", text: "Get started!!" }])
+    expect(sent).toEqual([{ type: "setText", el: "e1", text: "Get started!!" }])
     expect(text().value).toBe("Get started!!")
   })
 
@@ -488,7 +520,7 @@ describe("text field", () => {
     type(text(), "Hi")
     blur(text())
     act(() => void vi.advanceTimersByTime(1000))
-    expect(sent).toEqual([{ type: "setText", text: "Hi" }])
+    expect(sent).toEqual([{ type: "setText", el: "e1", text: "Hi" }])
   })
 
   it("sends nothing when the text is unchanged", () => {
@@ -499,12 +531,12 @@ describe("text field", () => {
     expect(sent).toEqual([])
   })
 
-  it("never sends a pending edit to the newly selected element", () => {
+  it("a pending edit goes to the element it was typed on, once, never to the new selection", () => {
     render(state(info()))
     type(text(), "typed on e1")
     render(state(info({ el: "e2", text: "other" })))
     act(() => void vi.advanceTimersByTime(1000))
-    expect(sent).toEqual([])
+    expect(sent).toEqual([{ type: "setText", el: "e1", text: "typed on e1" }])
     expect(text().value).toBe("other")
   })
 
@@ -513,5 +545,75 @@ describe("text field", () => {
     type(text(), "Get start")
     render(state(info({ text: "Get startedX" })))
     expect(text().value).toBe("Get start")
+  })
+})
+
+describe("element card details", () => {
+  it("shows the source file:line as visible muted text, with a title", () => {
+    render(state(info()))
+    const p = container.querySelector<HTMLElement>(
+      '[data-slot="element-source"]'
+    )!
+    expect(p.textContent).toBe("src/Hero.tsx:42")
+    expect(p.title).toBe("src/Hero.tsx:42")
+  })
+
+  it("shows no source line without a file", () => {
+    const i = info()
+    i.descriptor = {
+      ...i.descriptor,
+      source: { framework: "react", component: "X" },
+    }
+    render(state(i))
+    expect(container.querySelector('[data-slot="element-source"]')).toBeNull()
+  })
+
+  it("shows +N when the descriptor's class list is capped", () => {
+    const i = info({ classCount: 11 })
+    i.descriptor = {
+      ...i.descriptor,
+      classes: Array.from({ length: 8 }, (_, n) => `c${n}`),
+    }
+    render(state(i))
+    expect(container.textContent).toContain("+3")
+    render(state(info({ classCount: 1 })))
+    expect(container.textContent).not.toContain("+0")
+    expect(container.textContent).not.toMatch(/\+\d/)
+  })
+})
+
+describe("opacity slider", () => {
+  it("has an accessible name and value text", () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    )
+    render(state(info()))
+    act(() => button("Appearance").click()) // closed by default
+    const thumb = container.querySelector('[role="slider"]')!
+    const label = document.getElementById(
+      thumb.getAttribute("aria-labelledby")!
+    )
+    expect(label?.textContent).toBe("Opacity")
+    expect(thumb.getAttribute("aria-valuetext")).toBe("100%")
+  })
+
+  it("a keyboard step sends the final value once, immediately", () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    )
+    render(state(info()))
+    act(() => button("Appearance").click())
+    key(container.querySelector<HTMLElement>('[role="slider"]')!, "ArrowLeft")
+    expect(sent).toEqual([style("opacity", "0.99")])
   })
 })

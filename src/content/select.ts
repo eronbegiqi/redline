@@ -1,6 +1,6 @@
 import { describe, elementId } from "@/content/describe"
 import { recordText, setStyle } from "@/content/edit"
-import { suppress } from "@/content/guard"
+import { settleStyleAttr, suppress } from "@/content/guard"
 import type { Recorder } from "@/shared/recorder"
 import type { Mode } from "@/shared/types"
 
@@ -103,6 +103,45 @@ function resizable(el: Element): boolean {
   )
 }
 
+/** Viewport-space rectangle; l/t inclusive, r/b exclusive. */
+interface Rect4 {
+  l: number
+  t: number
+  r: number
+  b: number
+}
+
+/**
+ * The part of the viewport in which `el` can be seen: the intersection of the padding boxes of every ancestor that clips
+ * its overflow (scroll containers, overflow:hidden, ...). null = not clipped. Honours the containing-block rules well enough
+ * for boxes: a fixed element escapes every ancestor, an absolute one escapes the non-positioned ones.
+ */
+export function clipRect(el: Element): Rect4 | null {
+  let clip: Rect4 | null = null
+  const first = getComputedStyle(el).position
+  if (first === "fixed") return null
+  // The box below is absolutely positioned: ancestors that are not its containing block do not clip it.
+  let escapes = first === "absolute"
+  for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+    const cs = getComputedStyle(a)
+    const positioned = cs.position !== "static"
+    if (escapes && !positioned) continue
+    escapes = cs.position === "absolute"
+    const clips = cs.overflowX !== "visible" || cs.overflowY !== "visible"
+    if (clips && a !== document.body) {
+      const r = a.getBoundingClientRect()
+      const l = r.left + a.clientLeft
+      const t = r.top + a.clientTop
+      const box = { l, t, r: l + a.clientWidth, b: t + a.clientHeight }
+      clip = clip
+        ? { l: Math.max(clip.l, box.l), t: Math.max(clip.t, box.t), r: Math.min(clip.r, box.r), b: Math.min(clip.b, box.b) }
+        : box
+    }
+    if (cs.position === "fixed") break
+  }
+  return clip
+}
+
 // ---------------------------------------------------------------------------------------------
 // Overlay DOM + CSS
 
@@ -131,7 +170,7 @@ const CSS = `
 .h.e{right:-8px;top:calc(50% - 8px)}
 .h.s{left:calc(50% - 8px);bottom:-8px}
 .h.se{right:-8px;bottom:-8px}
-.sel:not(.live) .h,.sel.no-e .h.e,.sel.no-s .h.s{display:none}
+.sel:not(.live) .h,.sel.no-e .h.e,.sel.no-s .h.s,.sel.clipped .h{display:none}
 .shield{position:fixed;inset:0;z-index:2147483647;pointer-events:auto}
 `
 
@@ -222,7 +261,7 @@ interface Resize {
   ex: number
   ey: number
   orig: Record<"width" | "height", Keep>
-  hadStyleAttr: boolean
+  prevStyleAttr: string | null
 }
 interface Editing {
   el: HTMLElement
@@ -244,6 +283,35 @@ const swallow = (e: Event) => {
 function targetOf(e: Event): Element | null {
   const t = (e.composedPath?.()[0] ?? e.target) as Node | null
   return t && t.nodeType === 1 ? (t as Element) : null
+}
+
+/**
+ * Browsers hit-test straight through `inert` subtrees, so a click on one lands on whatever is behind it. When the hit
+ * element `t` contains an inert root under the pointer, the user was aiming at that root's content: return the
+ * innermost element of it at the point. (A modal drawn over an inert page is not an ancestor of it: not affected.)
+ */
+export function inertAt(t: Element | null, x: number, y: number): Element | null {
+  if (!t) return null
+  const inside = (e: Element) => {
+    const r = e.getBoundingClientRect()
+    return r.width > 0 && r.height > 0 && x >= r.left && x < r.right && y >= r.top && y < r.bottom
+  }
+  for (const root of t.querySelectorAll("[inert]")) {
+    if (!inside(root)) continue
+    let hit = root
+    for (let again = true; again; ) {
+      again = false
+      for (let c = hit.lastElementChild; c; c = c.previousElementSibling) {
+        if (inside(c)) {
+          hit = c
+          again = true
+          break
+        }
+      }
+    }
+    return hit
+  }
+  return null
 }
 
 export function createSelector(opts: SelectorOptions): SelectorApi {
@@ -306,15 +374,26 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       b.root.hidden = true
       return null
     }
-    // ponytail: boxes are not clipped by scrolling ancestors, so an element scrolled out of its container keeps a floating box
     const vw = layer.clientWidth || Infinity // 0 without layout (jsdom)
     const vh = layer.clientHeight || Infinity
     const snap = (v: number) => Math.round(v * dpr) / dpr
+    // Only the visible part is outlined: a side cut off by a scrolling ancestor gets no ring outside the clip edge.
+    const clip = clipRect(el)
+    const cl = clip ? Math.max(r.left, clip.l) : r.left
+    const ct = clip ? Math.max(r.top, clip.t) : r.top
+    const cr = clip ? Math.min(r.right, clip.r) : r.right
+    const cb = clip ? Math.min(r.bottom, clip.b) : r.bottom
+    if (clip && (cr <= cl || cb <= ct)) {
+      b.root.hidden = true // scrolled completely out of its container
+      return null
+    }
+    const clipped = !!clip && (cl > r.left || ct > r.top || cr < r.right || cb < r.bottom)
+    b.root.classList.toggle("clipped", clipped)
     // Clamp into the viewport so an element touching the edge still shows all four sides.
-    const x0 = Math.max(0, snap(r.left - ring))
-    const y0 = Math.max(0, snap(r.top - ring))
-    const x1 = Math.min(vw, snap(r.right + ring))
-    const y1 = Math.min(vh, snap(r.bottom + ring))
+    const x0 = Math.max(0, snap(cl - (cl > r.left ? 0 : ring)))
+    const y0 = Math.max(0, snap(ct - (ct > r.top ? 0 : ring)))
+    const x1 = Math.min(vw, snap(cr + (cr < r.right ? 0 : ring)))
+    const y1 = Math.min(vh, snap(cb + (cb < r.bottom ? 0 : ring)))
     if (x1 <= x0 || y1 <= y0) {
       b.root.hidden = true
       return null
@@ -422,7 +501,11 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       onBlur: () => safe(() => endEdit(true)),
     }
     editing = ed
-    suppress(() => el.setAttribute("contenteditable", "plaintext-only"))
+    // The marker tells the DevTools observer that typing here is ours (recordText() logs it once, on commit).
+    suppress(() => {
+      el.setAttribute("data-redline-editing", "")
+      el.setAttribute("contenteditable", "plaintext-only")
+    })
     el.addEventListener("blur", ed.onBlur, { signal })
     el.focus({ preventScroll: true })
     getSelection()?.selectAllChildren(el)
@@ -442,6 +525,7 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       }
       if (ed.prevAttr === null) ed.el.removeAttribute("contenteditable")
       else ed.el.setAttribute("contenteditable", ed.prevAttr)
+      ed.el.removeAttribute("data-redline-editing")
     })
     ed.el.blur()
     if (commit && after !== ed.before) {
@@ -478,7 +562,7 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       ex: content ? n("padding-left") + n("padding-right") + n("border-left-width") + n("border-right-width") : 0,
       ey: content ? n("padding-top") + n("padding-bottom") + n("border-top-width") + n("border-bottom-width") : 0,
       orig: { width: keep("width"), height: keep("height") },
-      hadStyleAttr: el.hasAttribute("style"),
+      prevStyleAttr: el.getAttribute("style"),
     }
     // Covers the page while dragging: keeps the resize cursor and stops page hover effects.
     shield.style.cursor = cursor
@@ -518,11 +602,7 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
         if (o.value) st.setProperty(p, o.value, o.priority)
         else st.removeProperty(p)
       }
-      if (!d.hadStyleAttr && !st.length) {
-        // Chrome syncs CSSOM edits to the attribute lazily and would re-create style="" after removeAttribute: flush first.
-        d.el.getAttribute("style")
-        d.el.removeAttribute("style")
-      }
+      settleStyleAttr(d.el, d.prevStyleAttr)
     })
     if (commit) {
       // One setStyle per axis that actually changed; the Recorder merges repeated drags into one entry.
@@ -563,6 +643,12 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
 
   // ----- window listeners --------------------------------------------------------------------
 
+  /** targetOf(), plus the inert content a click would have gone through. */
+  const aimedAt = (e: MouseEvent): Element | null => {
+    const t = targetOf(e)
+    return (t && !isOurs(t) ? inertAt(t, e.clientX, e.clientY) : null) ?? t
+  }
+
   const on = (type: string, f: (e: never) => void) =>
     window.addEventListener(type, (e) => safe(() => f(e as never)), { capture: true, signal })
 
@@ -574,7 +660,7 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       if (drag && e.type === "pointerup") endResize(true)
       return
     }
-    const t = targetOf(e)
+    const t = aimedAt(e)
     if (editing) {
       if (t && editing.el.contains(t)) {
         // Caret placement and word selection are default actions of mouse down/up, so those stay uncancelled; the
@@ -604,7 +690,7 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
   on("pointermove", (e: PointerEvent) => {
     if (drag) return resizeMove(drag, e)
     if (mode !== "select") return
-    hoverEl = pickable(targetOf(e))
+    hoverEl = pickable(aimedAt(e))
     kick()
   })
   on("pointercancel", () => endResize(false))

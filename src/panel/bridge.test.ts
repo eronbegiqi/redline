@@ -9,9 +9,16 @@ const state = createMockStore("empty").get().state as PanelState
 /** A stand-in for `window` whose "message" events carry whatever data/ports we choose. */
 function fakeWindow() {
   const target = new EventTarget()
-  const post = (data: unknown, port?: MessagePort) =>
-    target.dispatchEvent(Object.assign(new Event("message"), { data, ports: port ? [port] : [] }))
-  return { win: target, post }
+  const parent = {}
+  const post = (data: unknown, port?: MessagePort, source: unknown = parent) =>
+    target.dispatchEvent(
+      Object.assign(new Event("message"), {
+        data,
+        ports: port ? [port] : [],
+        source,
+      })
+    )
+  return { win: target, post, parent }
 }
 
 const channels: MessageChannel[] = []
@@ -26,18 +33,18 @@ afterEach(() => {
 
 describe("createHostStore", () => {
   it("stays disconnected and send is a no-op until init arrives", () => {
-    const { win } = fakeWindow()
-    const store = createHostStore(win)
+    const { win, parent } = fakeWindow()
+    const store = createHostStore(win, parent)
     expect(store.get()).toEqual({ state: null, connected: false })
     expect(() => store.send({ type: "close" })).not.toThrow()
   })
 
   it("answers init with ready, then exposes pushed state and forwards send()", async () => {
-    const { win, post } = fakeWindow()
+    const { win, post, parent } = fakeWindow()
     const ch = channel()
     const got: unknown[] = []
     ch.port1.onmessage = (e) => got.push(e.data)
-    const store = createHostStore(win)
+    const store = createHostStore(win, parent)
     const onChange = vi.fn()
     store.subscribe(onChange)
 
@@ -49,18 +56,26 @@ describe("createHostStore", () => {
     await vi.waitFor(() => expect(store.get().state).toEqual(state))
     expect(onChange).toHaveBeenCalled()
 
-    store.send({ type: "setMode", mode: "move" })
-    await vi.waitFor(() => expect(got).toContainEqual({ type: "setMode", mode: "move" }))
+    store.send({ type: "setStyle", el: "e1", prop: "color", value: "red" })
+    await vi.waitFor(() =>
+      expect(got).toContainEqual({
+        type: "setStyle",
+        el: "e1",
+        prop: "color",
+        value: "red",
+      })
+    )
   })
 
   it("keeps the same snapshot object until something changes", () => {
-    const store = createHostStore(fakeWindow().win)
+    const { win, parent } = fakeWindow()
+    const store = createHostStore(win, parent)
     expect(store.get()).toBe(store.get())
   })
 
   it("ignores messages that are not init or carry no port", () => {
-    const { win, post } = fakeWindow()
-    const store = createHostStore(win)
+    const { win, post, parent } = fakeWindow()
+    const store = createHostStore(win, parent)
     post({ redline: "init" }) // no port
     post({ something: "else" }, channel().port2)
     post(null, channel().port2)
@@ -68,18 +83,38 @@ describe("createHostStore", () => {
   })
 
   it("accepts the first init only", async () => {
-    const { win, post } = fakeWindow()
+    const { win, post, parent } = fakeWindow()
     const first = channel()
     const second = channel()
-    const store = createHostStore(win)
+    const store = createHostStore(win, parent)
     post({ redline: "init" }, first.port2)
     post({ redline: "init" }, second.port2)
 
     second.port1.postMessage({ type: "state", state })
-    first.port1.postMessage({ type: "state", state: { ...state, mode: "browse" } })
+    first.port1.postMessage({
+      type: "state",
+      state: { ...state, mode: "browse" },
+    })
     await vi.waitFor(() => expect(store.get().state?.mode).toBe("browse"))
     await new Promise((r) => setTimeout(r, 20))
     expect(store.get().state?.mode).toBe("browse")
+  })
+})
+
+describe("createHostStore: init source", () => {
+  it("ignores an init that does not come from the embedding window, and still accepts the real one after", async () => {
+    const { win, post, parent } = fakeWindow()
+    const store = createHostStore(win, parent)
+    const evil = channel()
+    post({ redline: "init" }, evil.port2, {}) // another window
+    post({ redline: "init" }, evil.port2, null)
+    expect(store.get().connected).toBe(false)
+
+    const real = channel()
+    post({ redline: "init" }, real.port2)
+    expect(store.get().connected).toBe(true)
+    real.port1.postMessage({ type: "state", state })
+    await vi.waitFor(() => expect(store.get().state).toEqual(state))
   })
 })
 
@@ -93,7 +128,10 @@ describe("copyText", () => {
 
   it("uses the async clipboard API when available", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    })
     expect(await copyText("hi")).toBe(true)
     expect(writeText).toHaveBeenCalledWith("hi")
   })
@@ -104,14 +142,20 @@ describe("copyText", () => {
       configurable: true,
     })
     const exec = vi.fn(() => true)
-    Object.defineProperty(document, "execCommand", { value: exec, configurable: true })
+    Object.defineProperty(document, "execCommand", {
+      value: exec,
+      configurable: true,
+    })
     expect(await copyText("hi")).toBe(true)
     expect(exec).toHaveBeenCalledWith("copy")
     expect(document.querySelector("textarea")).toBeNull()
   })
 
   it("reports failure instead of throwing when nothing works", async () => {
-    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true })
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    })
     expect(await copyText("hi")).toBe(false)
   })
 })

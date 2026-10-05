@@ -1,4 +1,11 @@
-import { useId, useState, type ChangeEvent, type KeyboardEvent } from "react"
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react"
 import { HexAlphaColorPicker } from "react-colorful"
 import {
   AlignCenterIcon,
@@ -46,14 +53,17 @@ import {
   sameValue,
   stepValue,
 } from "./css"
-import { useDraft, useEdit, useStyleDraft } from "./edit-context"
+import {
+  useEdit,
+  useSettleOnUnmount,
+  useStyleDraft,
+  type Draft,
+} from "./edit-context"
 
 // Dense 360px layout: labels and inputs are one size down from shadcn's defaults.
 // `md:text-xs` is needed because Input/Textarea set `md:text-sm` (never active in a 360px frame, but cn() keeps both).
 const LABEL = "text-xs font-normal text-muted-foreground"
 const INPUT = "h-7 px-2 text-xs md:text-xs"
-
-type Draft = ReturnType<typeof useDraft>
 
 /** Shared text-input behaviour: Enter/blur commit, Escape reverts, optional ArrowUp/Down stepping. */
 function textInputProps(
@@ -104,6 +114,7 @@ function useLengthInput(prop: StyleProp, o: LengthOpts = {}) {
     d.commit(next)
     ;(o.apply ?? set)(next)
   }
+  useSettleOnUnmount(d, commit)
   return textInputProps(d, commit, (dir, e) => {
     const next = stepValue(normalizeLength(d.text, o.unitless), dir, {
       step: o.step,
@@ -239,7 +250,7 @@ export function ColorField({
   label: string
 }) {
   const id = useId()
-  const { d, set } = useStyleDraft(prop, formatColor)
+  const { d, set, preview } = useStyleDraft(prop, formatColor)
 
   const commit = (text: string) => {
     const next = emitColor(text)
@@ -248,12 +259,14 @@ export function ColorField({
     d.commit(formatColor(next))
     set(next)
   }
+  useSettleOnUnmount(d, commit)
   // Live preview while dragging: the field text follows the picker (as a draft, so state echoes can't
-  // yank it back), and every move is sent. Closing the popover settles the draft.
+  // yank it back) and the page follows at most once per frame (the latest value always arrives).
+  // Closing the popover settles the draft with a final, immediate send.
   const pick = (hex: string) => {
     const next = emitColor(hex)
     d.type(formatColor(next))
-    set(next)
+    preview(next)
   }
 
   return (
@@ -261,7 +274,7 @@ export function ColorField({
       <FieldLabel htmlFor={id} className={LABEL}>
         {label}
       </FieldLabel>
-      <Popover onOpenChange={(open) => !open && d.typing && d.commit(d.text)}>
+      <Popover onOpenChange={(open) => !open && d.typing && commit(d.text)}>
         <InputGroup className="h-7">
           <InputGroupAddon>
             <PopoverTrigger asChild>
@@ -390,33 +403,51 @@ export function AlignField() {
 
 export function OpacityField() {
   const id = useId()
-  const { d, set } = useStyleDraft("opacity")
+  const { d, set, preview } = useStyleDraft("opacity")
+  const box = useRef<HTMLDivElement>(null)
   const n = Number.parseFloat(d.text)
   const value = Number.isFinite(n) ? n : 1
+  const shown = `${Math.round(value * 100)}%`
+  useSettleOnUnmount(d, (text) => {
+    d.commit(text)
+    set(text)
+  })
+  // Radix puts no accessible name on the thumb (and Slider forwards props to the root only), so name it here.
+  useEffect(() => {
+    const thumb = box.current?.querySelector('[role="slider"]')
+    thumb?.setAttribute("aria-labelledby", id)
+    thumb?.setAttribute("aria-valuetext", shown)
+  })
   return (
-    // Radix's single thumb has no accessible name of its own, so the group carries it.
-    <Field aria-labelledby={id}>
+    <Field>
       <div className="flex items-center justify-between">
         <FieldTitle id={id} className={LABEL}>
           Opacity
         </FieldTitle>
         <span className="text-xs text-muted-foreground tabular-nums">
-          {Math.round(value * 100)}%
+          {shown}
         </span>
       </div>
-      <Slider
-        min={0}
-        max={1}
-        step={0.01}
-        value={[value]}
-        // Draft while dragging (echoes can't move the thumb back), live-sent; settled on release.
-        onValueChange={([x]) => {
-          const next = formatNumber(x)
-          d.type(next)
-          if (!sameValue(next, d.current)) set(next)
-        }}
-        onValueCommit={([x]) => d.commit(formatNumber(x))}
-      />
+      <div ref={box}>
+        <Slider
+          min={0}
+          max={1}
+          step={0.01}
+          value={[value]}
+          // Draft while dragging (echoes can't move the thumb back), previewed at most once per frame; the
+          // release always sends the final value.
+          onValueChange={([x]) => {
+            const next = formatNumber(x)
+            d.type(next)
+            preview(next)
+          }}
+          onValueCommit={([x]) => {
+            const next = formatNumber(x)
+            d.commit(next)
+            set(next)
+          }}
+        />
+      </div>
     </Field>
   )
 }

@@ -1,11 +1,22 @@
 import { useRef, type PointerEvent } from "react"
-import { HandIcon, MousePointer2Icon, MoveIcon, RulerIcon, XIcon, type LucideIcon } from "lucide-react"
+import {
+  HandIcon,
+  MousePointer2Icon,
+  MoveIcon,
+  RulerIcon,
+  XIcon,
+  type LucideIcon,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { TabProps } from "@/panel/props"
 import type { Mode } from "@/shared/types"
 
@@ -62,7 +73,9 @@ export function Header({ state, send }: TabProps) {
         aria-label="Mode"
         value={state.mode}
         // Radix emits "" when the active item is clicked again: a mode must always stay selected.
-        onValueChange={(mode) => mode && send({ type: "setMode", mode: mode as Mode })}
+        onValueChange={(mode) =>
+          mode && send({ type: "setMode", mode: mode as Mode })
+        }
         className="ml-auto"
       >
         {MODES.map(({ value, label, Icon }) => (
@@ -85,7 +98,10 @@ export function Header({ state, send }: TabProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Field orientation="horizontal" className="w-auto gap-1.5">
-            <FieldLabel htmlFor="redline-devtools" className="cursor-pointer text-xs">
+            <FieldLabel
+              htmlFor="redline-devtools"
+              className="cursor-pointer text-xs"
+            >
               DevTools
             </FieldLabel>
             <Switch
@@ -96,12 +112,20 @@ export function Header({ state, send }: TabProps) {
             />
           </Field>
         </TooltipTrigger>
-        <TooltipContent>Also record edits made in Chrome DevTools (text, attributes, inline styles, added or removed nodes). Off by default.</TooltipContent>
+        <TooltipContent>
+          Also record edits made in Chrome DevTools (text, attributes, inline
+          styles, added or removed nodes). Off by default.
+        </TooltipContent>
       </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Close panel" onClick={() => send({ type: "close" })}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close panel"
+            onClick={() => send({ type: "close" })}
+          >
             <XIcon />
           </Button>
         </TooltipTrigger>

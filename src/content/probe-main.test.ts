@@ -47,7 +47,28 @@ describe("cleanFile", () => {
     ["file:///Users/me/proj/src/Hero.tsx", "/Users/me/proj/src/Hero.tsx"],
     ["/Users/me/proj/src/Hero.tsx", "/Users/me/proj/src/Hero.tsx"], // already a filesystem path: untouched
     ["src/Hero.tsx", "src/Hero.tsx"],
+    ["http://localhost:5173/src/App.tsx?t=17", "src/App.tsx"],
+    ["http://localhost:5173/@id/__x00__virtual:foo", "virtual:foo"],
+    ["/@id/vue", "vue"],
+    ["webpack://app/./src/X.tsx", "src/X.tsx"],
+    ["webpack:///./src/X.tsx?abcd", "src/X.tsx"],
+    ["webpack-internal:///(app-pages-browser)/./src/X.tsx", "src/X.tsx"],
+    ["webpack-internal:///(rsc)/./src/app/layout.tsx", "src/app/layout.tsx"],
+    ["file:///C:/proj/src/X.tsx", "C:/proj/src/X.tsx"],
+    ["http://localhost:5173/@fs/C:/proj/src/X.tsx?t=1", "C:/proj/src/X.tsx"],
+    ["file://localhost/Users/me/x.tsx", "/Users/me/x.tsx"],
+    ["http://localhost:5173/src/My%20Comp.tsx#x", "src/My Comp.tsx"],
+    ["http://localhost:5173/src/100%.tsx", "src/100%.tsx"], // not decodable: kept raw
+    ["  ./src/X.tsx  ", "src/X.tsx"],
   ])("%s -> %s", (raw, want) => expect(cleanFile(raw)).toBe(want))
+
+  it("is applied to the file of every framework hint", () => {
+    expect(
+      fiberToHint(fiber(Hero, { _debugSource: { fileName: "http://localhost:5173/src/Hero.tsx?t=1", lineNumber: 3 } }))?.file
+    ).toBe("src/Hero.tsx")
+    expect(vueToHint({ type: { name: "A", __file: "/@fs/Users/me/a.vue?x" } })?.file).toBe("/Users/me/a.vue")
+    expect(svelteToHint({ loc: { file: "./src/A.svelte?x", line: 1, column: 0 } })?.file).toBe("src/A.svelte")
+  })
 })
 
 describe("stackFrame (React 19 _debugStack)", () => {

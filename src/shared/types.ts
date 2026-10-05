@@ -117,9 +117,12 @@ export interface ElementInfo {
   text: string
   /** Computed values for every STYLE_PROPS entry. */
   styles: Record<StyleProp, string>
+  /** Live number of classes on the element. descriptor.classes is cut at 8, so more here than there means "+N". */
+  classCount?: number
+  /** The "parent" action can run: false for <html> and for a direct child of a shadow root. */
   hasParent: boolean
   hasChild: boolean
-  /** False for <html>/<body>. */
+  /** The "delete" / "hide" / "duplicate" actions can run: false for <html>/<body> (and for a node with no parent). */
   canDelete: boolean
 }
 

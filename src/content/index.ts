@@ -1,4 +1,4 @@
-import { describe, elementId } from "@/content/describe"
+import { describe, elementById, elementId } from "@/content/describe"
 import { createDragger } from "@/content/drag"
 import {
   duplicateEl,
@@ -27,6 +27,15 @@ const g = globalThis as typeof globalThis & { __redline?: Redline }
 
 const isRootish = (el: Element) =>
   el === document.documentElement || el === document.body
+
+/**
+ * delete / hide / duplicate: never <html>/<body>, and the node needs a parent to leave or to be cloned next to.
+ * This is ElementInfo.canDelete, so the panel's buttons and the controller agree on when an action can run.
+ */
+const canMutate = (el: Element) => !isRootish(el) && !!el.parentNode
+
+const classCount = (el: Element) =>
+  (el.getAttribute("class") ?? "").split(/\s+/).filter(Boolean).length
 
 /** Only elements made of nothing but text get a text field (setText would wipe any child element). */
 const isTextLeaf = (el: Element) =>
@@ -72,6 +81,12 @@ function start(): Redline {
     const firstChild = (el: Element) =>
       Array.from(el.children).find((c) => !isOurs(c)) ?? null
 
+    /** The element an edit message was made for: known, and still in the page (it may be gone or no longer selected). */
+    const target = (id: string) => {
+      const el = elementById(id)
+      return el?.isConnected ? el : null
+    }
+
     function infoOf(el: Element): ElementInfo {
       const r = el.getBoundingClientRect()
       const leaf = isTextLeaf(el)
@@ -82,16 +97,18 @@ function start(): Redline {
         isTextLeaf: leaf,
         text: leaf ? (el.textContent ?? "").slice(0, 2000) : "",
         styles: readStyles(el),
+        classCount: classCount(el),
         hasParent: !!el.parentElement,
         hasChild: !!firstChild(el),
-        canDelete: !isRootish(el),
+        canDelete: canMutate(el),
       }
     }
 
     function snapshot(): PanelState {
       let selection: ElementInfo | null = null
       try {
-        if (selected) selection = infoOf(selected)
+        // describe() caches the FIRST descriptor of an element: never feed it one that is already out of the page.
+        if (selected?.isConnected) selection = infoOf(selected)
       } catch (e) {
         console.error("[redline]", e)
       }
@@ -166,50 +183,66 @@ function start(): Redline {
 
     /** After a DOM edit: re-measure the overlay and tell the panel (the log may not have changed, e.g. a cancelled edit). */
     function edited() {
+      push() // first: a throwing overlay must not keep the panel from learning about the edit
       selector.refresh()
-      push()
     }
 
-    function act(action: Extract<ToContent, { type: "action" }>["action"]) {
-      const el = selected
-      if (action === "deselect") return setSelected(null)
+    /**
+     * Acts on the element the panel asked about (`id`), which is not necessarily the selection any more.
+     * Only the selection itself may move the selection.
+     */
+    function act(
+      action: Extract<ToContent, { type: "action" }>["action"],
+      id: string
+    ) {
+      const el = target(id)
       if (!el) return
+      const isSelected = el === selected
       switch (action) {
+        case "deselect":
+          if (isSelected) setSelected(null)
+          break
         case "parent":
-          if (el.parentElement) setSelected(el.parentElement)
+          if (isSelected && el.parentElement) setSelected(el.parentElement)
           break
         case "child": {
           const c = firstChild(el)
-          if (c) setSelected(c)
+          if (isSelected && c) setSelected(c)
           break
         }
         case "delete": {
-          if (isRootish(el) || !el.parentElement) return
+          if (!canMutate(el)) return
           const parent = el.parentElement
           removeEl(rec, el)
-          if (el.isConnected)
-            edited() // removeEl swallowed an error: nothing was deleted
-          else setSelected(parent)
+          // removeEl swallows errors: only an element that is really gone moves the selection
+          if (isSelected && !el.isConnected) setSelected(parent)
+          else edited()
           break
         }
         case "hide":
+          if (!canMutate(el)) return
           hideEl(rec, el)
           edited()
           break
-        case "duplicate":
-          setSelected(duplicateEl(rec, el))
+        case "duplicate": {
+          if (!canMutate(el)) return
+          const clone = duplicateEl(rec, el)
+          if (isSelected) setSelected(clone)
+          else edited()
           break
+        }
       }
     }
 
     function close() {
       if (!visible) return
       resumeMode = mode
-      setMode("browse")
+      // Hide before touching the layers: whatever they do about a vanished selection, the panel must go away.
       visible = false
+      frame.hide()
       stopObserving()
       watch()
-      frame.hide()
+      setMode("browse")
     }
 
     function show() {
@@ -235,16 +268,22 @@ function start(): Redline {
           case "setRecording":
             setRecording(!!m.on)
             break
-          case "setStyle":
-            if (selected) setStyle(rec, selected, m.prop, m.value)
+          case "setStyle": {
+            const el = target(m.el)
+            if (!el) break
+            setStyle(rec, el, m.prop, m.value)
             edited()
             break
-          case "setText":
-            if (selected && isTextLeaf(selected)) setText(rec, selected, m.text)
+          }
+          case "setText": {
+            const el = target(m.el)
+            if (!el || !isTextLeaf(el)) break
+            setText(rec, el, m.text)
             edited()
             break
+          }
           case "action":
-            act(m.action)
+            act(m.action, m.el)
             break
           case "undo":
             suppress(() => rec.undo())

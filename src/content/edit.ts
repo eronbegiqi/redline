@@ -1,5 +1,5 @@
 import { describe, elementId, placementOf } from "@/content/describe"
-import { suppress } from "@/content/guard"
+import { settleStyleAttr, suppress } from "@/content/guard"
 import type { Recorder } from "@/shared/recorder"
 import { STYLE_PROPS, type StyleProp } from "@/shared/types"
 
@@ -37,7 +37,7 @@ export function setStyle(
     const prevValue = style.getPropertyValue(prop)
     const prevPriority = style.getPropertyPriority(prop)
     const hadInline = prevValue !== ""
-    const hadAttr = el.hasAttribute("style")
+    const prevAttr = el.getAttribute("style")
     if (v === "" && !hadInline) return // nothing to remove
     if (v !== "") {
       // The browser silently drops invalid values; don't log a change that never happened.
@@ -67,9 +67,9 @@ export function setStyle(
       origin: "panel",
       revert: () =>
         suppress(() => {
-          if (hadInline) return style.setProperty(prop, prevValue, prevPriority)
-          style.removeProperty(prop)
-          if (!hadAttr && !style.length) el.removeAttribute("style") // don't leave style="" behind
+          if (hadInline) style.setProperty(prop, prevValue, prevPriority)
+          else style.removeProperty(prop)
+          settleStyleAttr(el, prevAttr) // no stray style="" / re-serialised text left behind
         }),
     })
   } catch {

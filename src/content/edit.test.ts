@@ -148,6 +148,42 @@ describe("setStyle", () => {
     expect(p.hasAttribute("style")).toBe(false) // no style="" left behind
   })
 
+  it("revert restores the element's outerHTML byte for byte, including an authored style text the CSSOM would re-serialise", () => {
+    const wrap = html(
+      `<div><p id="a">x</p><p id="b" style="color:red;margin:0">y</p><p id="c" style="">z</p></div>`
+    ).firstElementChild as HTMLElement
+    const orig = wrap.outerHTML
+    const { rec, changes } = fakeRec()
+    for (const id of ["a", "b", "c"])
+      setStyle(rec, document.getElementById(id)!, "width", "10px")
+    for (const c of changes) c.revert!()
+    expect(wrap.outerHTML).toBe(orig)
+  })
+
+  it("revert syncs the lazily-updated style attribute BEFORE dropping it (Chrome would bring style=\"\" back otherwise)", () => {
+    const p = html(`<p>x</p>`).firstElementChild as HTMLElement
+    const { rec, changes } = fakeRec()
+    setStyle(rec, p, "color", "red")
+    const calls: string[] = []
+    const get = p.getAttribute.bind(p)
+    const rm = p.removeAttribute.bind(p)
+    p.getAttribute = (n: string) => (n === "style" && calls.push("get"), get(n))
+    p.removeAttribute = (n: string) => (n === "style" && calls.push("remove"), rm(n))
+    changes[0].revert!()
+    expect(calls).toEqual(["get", "remove"])
+  })
+
+  it("reverting one of two merged-away props keeps the attribute until the last one is gone", () => {
+    const p = html(`<p>x</p>`).firstElementChild as HTMLElement
+    const { rec, changes } = fakeRec()
+    setStyle(rec, p, "color", "red")
+    setStyle(rec, p, "width", "10px")
+    changes[1].revert!()
+    expect(p.getAttribute("style")).toBe("color: red !important;")
+    changes[0].revert!()
+    expect(p.outerHTML).toBe("<p>x</p>")
+  })
+
   it("chained edits revert newest to oldest back to the original", () => {
     const p = html(`<p style="color: green">x</p>`)
       .firstElementChild as HTMLElement

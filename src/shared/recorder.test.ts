@@ -403,7 +403,7 @@ describe("merge table", () => {
     expect(rec.list()).toEqual([])
   })
 
-  it("edit then undo-to-original cancels without running any revert", () => {
+  it("edit then undo-to-original cancels and runs only the EARLIEST revert, once (restores the pre-edit DOM exactly)", () => {
     const rec = new Recorder()
     const log: string[] = []
     rec.record(style("e1", "color", "red", "blue", rv(log, "r1")))
@@ -412,20 +412,68 @@ describe("merge table", () => {
       rec.record(style("e1", "color", "green", "red", rv(log, "r3")))
     ).toBeNull()
     expect(rec.list()).toEqual([])
-    expect(log).toEqual([])
+    expect(log).toEqual(["r1"])
+    rec.revertAll()
+    expect(log).toEqual(["r1"])
   })
 
-  it("a revert recorded with a cancelling merge is discarded too, and the key starts fresh afterwards", () => {
+  it.each<[string, NewChange, NewChange]>([
+    ["text", text("e1", "a", "b", 0, undefined), text("e1", "b", "a")],
+    ["attr", attr("e1", "href", "/a", "/b"), attr("e1", "href", "/b", "/a")],
+    ["class", cls("e1", ["x"], []), cls("e1", [], ["x"])],
+    [
+      "move",
+      move("e1", "ul", 0, "ol", 2),
+      move("e1", "ol", 2, "ul", 0),
+    ],
+  ])("cancelling a %s entry also runs its earliest revert only", (_k, first, second) => {
+    const rec = new Recorder()
+    const log: string[] = []
+    rec.record({ ...first, revert: rv(log, "first") })
+    expect(rec.record({ ...second, revert: rv(log, "second") })).toBeNull()
+    expect(rec.list()).toEqual([])
+    expect(log).toEqual(["first"])
+  })
+
+  it("a throwing earliest revert on cancel is swallowed and the entry is still dropped", () => {
+    const rec = new Recorder()
+    const listener = vi.fn()
+    rec.subscribe(listener)
+    rec.record(
+      style("e1", "color", "red", "blue", () => {
+        throw new Error("boom")
+      })
+    )
+    listener.mockClear()
+    expect(rec.record(style("e1", "color", "blue", "red"))).toBeNull()
+    expect(rec.list()).toEqual([])
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it("an entry whose merge cancelled out leaves nothing for revertAll to run again", () => {
+    const rec = new Recorder()
+    const log: string[] = []
+    rec.record(style("e1", "color", "red", "blue", rv(log, "a")))
+    rec.record(style("e1", "color", "blue", "red", rv(log, "b")))
+    rec.record(style("e2", "color", "red", "blue", rv(log, "c")))
+    log.length = 0
+    rec.revertAll()
+    expect(log).toEqual(["c"])
+  })
+
+  it("the cancelling change's own revert is discarded, and the key starts fresh afterwards", () => {
     const rec = new Recorder()
     const log: string[] = []
     rec.record(style("e1", "color", "red", "blue", rv(log, "old")))
     rec.record(style("e1", "color", "blue", "red", rv(log, "cancel")))
+    expect(log).toEqual(["old"])
     const again = rec.record(
       style("e1", "color", "red", "green", rv(log, "new"))
     )
     expect(again).toMatchObject({ id: "c2", before: "red", after: "green" })
+    log.length = 0
     rec.revert("c2")
-    expect(log).toEqual(["new"])
+    expect(log).toEqual(["new"]) // not "old" (ran once at cancel time) and not "cancel" (never ran)
   })
 
   it.each<[string, NewChange, NewChange]>([

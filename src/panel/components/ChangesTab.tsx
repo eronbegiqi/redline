@@ -13,15 +13,38 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { TabProps } from "@/panel/props"
 import { summarize } from "@/panel/summarize"
 import type { Change } from "@/shared/types"
@@ -56,7 +79,9 @@ export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
             <HistoryIcon />
           </EmptyMedia>
           <EmptyTitle>No changes yet</EmptyTitle>
-          <EmptyDescription>Edit something on the page and it will be listed here.</EmptyDescription>
+          <EmptyDescription>
+            Edit something on the page and it will be listed here.
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -68,14 +93,21 @@ export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
       <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
         <ItemGroup className="gap-0.5 p-2">
           {changes.map((c) => (
-            <ChangeRow key={c.id} change={c} onRevert={() => send({ type: "revert", id: c.id })} />
+            <ChangeRow
+              key={c.id}
+              change={c}
+              onRevert={() => send({ type: "revert", id: c.id })}
+            />
           ))}
         </ItemGroup>
       </ScrollArea>
 
       <FieldGroup className="max-h-[60%] shrink-0 gap-3 overflow-y-auto border-t p-3">
         <Field>
-          <FieldLabel htmlFor="redline-note" className="text-xs text-muted-foreground">
+          <FieldLabel
+            htmlFor="redline-note"
+            className="text-xs text-muted-foreground"
+          >
             Notes for the AI (optional)
           </FieldLabel>
           <Textarea
@@ -90,36 +122,60 @@ export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
 
         <Accordion type="single" collapsible>
           <AccordionItem value="preview" className="border-b-0">
-            <AccordionTrigger className="py-0 text-xs text-muted-foreground">Preview prompt</AccordionTrigger>
+            <AccordionTrigger className="py-0 text-xs text-muted-foreground">
+              Preview prompt
+            </AccordionTrigger>
             <AccordionContent className="pt-2 pb-0">
               <Textarea
                 readOnly
                 aria-label="Prompt preview"
-                value={"text" in prompt ? prompt.text : `Preview unavailable: ${prompt.error}`}
+                value={
+                  "text" in prompt
+                    ? prompt.text
+                    : `Preview unavailable: ${prompt.error}`
+                }
                 className="max-h-48 min-h-20 font-mono text-xs"
               />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
 
-        <RevertAll count={changes.length} onConfirm={() => send({ type: "revertAll" })} />
+        <RevertAll
+          count={changes.length}
+          onConfirm={() => send({ type: "revertAll" })}
+        />
       </FieldGroup>
     </div>
   )
 }
 
-function ChangeRow({ change: c, onRevert }: { change: Change; onRevert: () => void }) {
+function ChangeRow({
+  change: c,
+  onRevert,
+}: {
+  change: Change
+  onRevert: () => void
+}) {
   const { Icon, label } = KIND[c.kind]
   return (
-    <Item size="xs" role="listitem" className="flex-nowrap items-start py-1.5 hover:bg-muted/50">
+    <Item
+      size="xs"
+      role="listitem"
+      className="flex-nowrap items-start py-1.5 hover:bg-muted/50"
+    >
       <ItemMedia variant="icon" className="mt-0.5 text-muted-foreground">
         <Icon aria-hidden />
         <span className="sr-only">{label}</span>
       </ItemMedia>
       <ItemContent className="min-w-0">
-        <ItemTitle className="flex w-full min-w-0 font-mono text-xs" title={c.target.selector}>
+        <ItemTitle
+          className="flex w-full min-w-0 font-mono text-xs"
+          title={c.target.selector}
+        >
           {/* rtl puts the ellipsis on the left so the leaf end of long selectors stays visible; the trailing LRM stops a final ")" from jumping to the other side. */}
-          <span className="truncate text-left [direction:rtl]">{c.target.selector}&lrm;</span>
+          <span className="truncate text-left [direction:rtl]">
+            {c.target.selector}&lrm;
+          </span>
         </ItemTitle>
         <ItemDescription className="truncate" title={summarize(c)}>
           {summarize(c)}
@@ -129,7 +185,12 @@ function ChangeRow({ change: c, onRevert }: { change: Change; onRevert: () => vo
         {c.origin === "devtools" && <Badge variant="outline">DevTools</Badge>}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-xs" aria-label="Revert this change" onClick={onRevert}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Revert this change"
+              onClick={onRevert}
+            >
               <Undo2Icon />
             </Button>
           </TooltipTrigger>
@@ -141,20 +202,35 @@ function ChangeRow({ change: c, onRevert }: { change: Change; onRevert: () => vo
 }
 
 /** Two-step inline confirm: reverting everything is not undoable. */
-function RevertAll({ count, onConfirm }: { count: number; onConfirm: () => void }) {
+function RevertAll({
+  count,
+  onConfirm,
+}: {
+  count: number
+  onConfirm: () => void
+}) {
   const [confirming, setConfirming] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
 
   if (!confirming) {
     return (
-      <Button ref={trigger} variant="outline" size="sm" onClick={() => setConfirming(true)}>
+      <Button
+        ref={trigger}
+        variant="outline"
+        size="sm"
+        onClick={() => setConfirming(true)}
+      >
         <RotateCcwIcon data-icon="inline-start" />
         Revert all
       </Button>
     )
   }
   return (
-    <div role="group" aria-label="Confirm revert all" className="flex items-center gap-2">
+    <div
+      role="group"
+      aria-label="Confirm revert all"
+      className="flex items-center gap-2"
+    >
       <span className="min-w-0 flex-1 text-xs">
         Revert all {count} {count === 1 ? "change" : "changes"}?
       </span>
