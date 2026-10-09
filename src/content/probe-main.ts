@@ -179,12 +179,44 @@ export function onProbe(): void {
   }
 }
 
+const HOST = "[data-redline-host]"
+
+/**
+ * Focus containment (React Aria / HeroUI modals) re-checks `document.activeElement` a frame after focus leaves the
+ * dialog and pulls it back, so a panel input could never be typed in. While our host holds focus, report the page
+ * element that had it before instead (activeElement is the host: our iframe sits in a closed shadow root).
+ * shortcut: the remembered element can be stale if focus was on <body> before the panel was clicked; harmless.
+ */
+function hideHostFocus() {
+  const desc = Object.getOwnPropertyDescriptor(Document.prototype, "activeElement")
+  if (!desc?.get) return
+  const get = desc.get
+  let last: Element | null = null
+  const remember = (e: Event) => {
+    if (e.target instanceof Element && !e.target.matches(HOST)) last = e.target
+  }
+  window.addEventListener("focusin", remember, true)
+  window.addEventListener("focusout", remember, true)
+  Object.defineProperty(Document.prototype, "activeElement", {
+    ...desc,
+    get(this: Document) {
+      const a = get.call(this) as Element | null
+      return a?.matches(HOST) && last?.isConnected ? last : a
+    },
+  })
+}
+
 /** Idempotent: a second injection (toolbar clicked again) must not add a second listener. */
 export function register(): boolean {
   const g = globalThis as unknown as { __redlineProbe?: boolean }
   if (typeof document === "undefined" || g.__redlineProbe) return false
   g.__redlineProbe = true
   document.addEventListener("redline:probe", onProbe)
+  try {
+    hideHostFocus()
+  } catch {
+    // never throw into the page
+  }
   return true
 }
 
