@@ -95,6 +95,7 @@ const BARE_NUMBER_RE = /^[+-]?(\d+\.?\d*|\.\d+)$/
 /** A bare number is not a valid CSS length (except 0): treat it as px unless the property is unitless (line-height). */
 export function normalizeLength(raw: string, unitless = false): string {
   const t = raw.trim()
+  if (t.toLowerCase() === "full") return "100%" // not CSS, but what people type for "fill the parent"
   return !unitless && BARE_NUMBER_RE.test(t) ? `${t}px` : t
 }
 

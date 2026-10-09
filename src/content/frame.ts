@@ -114,6 +114,11 @@ export function createFrame(): Frame {
     }
   })
 
+  // Modal dialogs (Radix FocusScope & co.) listen for focus leaving them on `document` and pull it back, which
+  // makes every panel input untypeable. Focus moving into our iframe is none of the page's business.
+  for (const type of ["focusin", "focusout"])
+    root.addEventListener(type, (e) => e.stopPropagation())
+
   window.addEventListener("resize", layout)
   layout()
   root.append(iframe)
