@@ -160,7 +160,7 @@ describe("setStyle", () => {
     expect(wrap.outerHTML).toBe(orig)
   })
 
-  it("revert syncs the lazily-updated style attribute BEFORE dropping it (Chrome would bring style=\"\" back otherwise)", () => {
+  it('revert syncs the lazily-updated style attribute BEFORE dropping it (Chrome would bring style="" back otherwise)', () => {
     const p = html(`<p>x</p>`).firstElementChild as HTMLElement
     const { rec, changes } = fakeRec()
     setStyle(rec, p, "color", "red")
@@ -168,7 +168,10 @@ describe("setStyle", () => {
     const get = p.getAttribute.bind(p)
     const rm = p.removeAttribute.bind(p)
     p.getAttribute = (n: string) => (n === "style" && calls.push("get"), get(n))
-    p.removeAttribute = (n: string) => (n === "style" && calls.push("remove"), rm(n))
+    p.removeAttribute = (n: string) => (
+      n === "style" && calls.push("remove"),
+      rm(n)
+    )
     changes[0].revert!()
     expect(calls).toEqual(["get", "remove"])
   })
@@ -474,5 +477,23 @@ describe("duplicateEl", () => {
     const loose = document.createElement("div")
     expect(duplicateEl(rec, loose)).toBe(loose)
     expect(changes).toHaveLength(0)
+  })
+})
+
+describe("setText with an icon", () => {
+  it("edits only the text node and keeps the icon; revert restores it", () => {
+    const b = html(`<button><svg></svg>Order</button>`).firstElementChild!
+    const svg = b.firstChild
+    const { rec, changes } = fakeRec()
+    setText(rec, b, "Buy")
+    expect(b.innerHTML).toBe("<svg></svg>Buy")
+    expect(b.firstChild).toBe(svg)
+    expect(changes[0]).toMatchObject({
+      textNode: 1,
+      before: "Order",
+      after: "Buy",
+    })
+    changes[0].revert!()
+    expect(b.innerHTML).toBe("<svg></svg>Order")
   })
 })

@@ -8,6 +8,7 @@ import {
   OpacityField,
   SelectField,
   SidesField,
+  TextStyleField,
   type Option,
 } from "./fields"
 
@@ -46,6 +47,7 @@ const Row = ({ children }: { children: ReactNode }) => (
 export function TypographyGroup() {
   return (
     <Group>
+      <TextStyleField prop="font-family" label="Font family" />
       <Row>
         <ColorField prop="color" label="Colour" />
         <LengthField prop="font-size" label="Size" />
@@ -72,6 +74,9 @@ export function SpacingGroup() {
     <Group>
       <SidesField kind="padding" label="Padding" />
       <SidesField kind="margin" label="Margin" />
+      <Row>
+        <LengthField prop="gap" label="Gap" zero />
+      </Row>
     </Group>
   )
 }
@@ -85,7 +90,6 @@ export function SizeGroup() {
       </Row>
       <Row>
         <SelectField prop="display" label="Display" options={DISPLAYS} />
-        <LengthField prop="gap" label="Gap" zero />
       </Row>
     </Group>
   )

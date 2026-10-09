@@ -126,6 +126,10 @@ describe("sameValue", () => {
 })
 
 describe("normalizeLength", () => {
+  it("maps `full` to 100%", () => {
+    expect(normalizeLength(" Full ")).toBe("100%")
+  })
+
   it("appends px to a bare number", () => {
     expect(normalizeLength("16")).toBe("16px")
     expect(normalizeLength(" -4.5 ")).toBe("-4.5px")

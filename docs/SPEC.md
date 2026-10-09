@@ -200,13 +200,13 @@ Active only in `move` mode (`setActive(true)`).
   `parent`/`child` change selection (child = first element child). After delete → select the parent; after duplicate → select the clone. `undo`/`revert`/`revertAll` wrap `suppress` (the Recorder reverts already do DOM writes; the controller calls them inside `suppress`).
   `close` hides the frame, sets mode `browse` (page works normally), disconnects observer. Toggle re-shows with the previous state.
 - `ElementInfo` is built with `edit.readStyles`, `describe`, `getBoundingClientRect`. Never send DOM nodes over the port.
-- Frame: iframe `src = chrome.runtime.getURL("panel.html")`, `allow="clipboard-write"`, fixed bottom-right (16px) 360×min(640px, 100vh−32px), 1px border, radius 12px, shadow, `color-scheme: normal`.
+- Frame: iframe `src = chrome.runtime.getURL("panel.html")`, `allow="clipboard-write"`, fixed bottom-right (16px) 440×min(720px, 100vh−32px), 1px border, radius 12px, shadow, `color-scheme: normal`.
   Handshake: on `load`, create `MessageChannel`, `iframe.contentWindow.postMessage({ redline: "init" }, new URL(src).origin, [port2])`; messages flow over the ports only. `moveBy` clamps inside the viewport.
 - Build: `build-ext.mjs` (exists). Icons `public/icons/icon-{16,48,128}.png` are rendered from the lucide `ruler`/`square-dashed-mouse-pointer`-style icon SVG that ships in `node_modules/lucide-react` / `lucide-static`-equivalent data. Do **not** hand-draw an icon.
 
 ## Panel UI (src/panel)
 
-360px wide, light/dark following `prefers-color-scheme` (toggle `dark` class on `<html>`; must also react to changes). Body has a solid `bg-background`. Everything shadcn + lucide-react.
+440px wide, light/dark following `prefers-color-scheme` (toggle `dark` class on `<html>`; must also react to changes). Body has a solid `bg-background`. Everything shadcn + lucide-react.
 - **Bridge** (`bridge.ts`): `usePanel()` hook returns `{ state, send, connected }`. On mount, wait for `{redline:"init"}` window message **with a MessagePort**, accept the first one only and only when `e.source === window.parent`, then `send({type:"ready"})`. Without a first `state` for 5s the panel shows "Couldn't reach the page. Reload the tab and click the Redline icon again.".
   `send` is a no-op until connected. When not embedded (`window.parent === window`) use `dev-mock.ts`, loaded with a dynamic `import()` so it is its own chunk (rich fake state, `send` mutates it) so `npm run dev` at `/panel.html` shows a realistic UI.
 - **Header** (also the drag handle: pointer-capture, post `moveFrame` with `screenX/screenY` deltas): app mark + "Redline", `ToggleGroup` for mode (lucide `MousePointer2`, `Move`, `Hand`; tooltips

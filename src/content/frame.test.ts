@@ -63,13 +63,13 @@ describe("createFrame", () => {
     expect(el.getAttribute("allow")).toBe(`clipboard-write ${ORIGIN}`)
   })
 
-  it("sits bottom-right at 360 x min(640, vh - 32) with a 16px margin", () => {
+  it("sits bottom-right at 440 x min(720, vh - 32) with a 16px margin", () => {
     const f = make()
     expect(box(f)).toEqual({
-      x: 1000 - 16 - 360,
-      y: 800 - 16 - 640,
-      w: 360,
-      h: 640,
+      x: 1000 - 16 - 440,
+      y: 800 - 16 - 720,
+      w: 440,
+      h: 720,
     })
   })
 
@@ -202,7 +202,7 @@ describe("moveBy", () => {
     f.moveBy(-5000, -5000)
     expect(box(f)).toMatchObject({ x: 0, y: 0 })
     f.moveBy(5000, 5000)
-    expect(box(f)).toMatchObject({ x: 1000 - 360, y: 800 - 640 })
+    expect(box(f)).toMatchObject({ x: 1000 - 440, y: 800 - 720 })
   })
 
   it("ignores non-finite deltas", () => {
@@ -226,7 +226,7 @@ describe("moveBy", () => {
     })
     window.dispatchEvent(new Event("resize"))
     const b = box(f)
-    expect(b).toEqual({ x: 600 - 360, y: 500 - 468, w: 360, h: 468 })
+    expect(b).toEqual({ x: 600 - 440, y: 500 - 468, w: 440, h: 468 })
   })
 
   it("an unmoved frame stays anchored bottom-right across resizes", () => {
@@ -236,7 +236,7 @@ describe("moveBy", () => {
       configurable: true,
     })
     window.dispatchEvent(new Event("resize"))
-    expect(box(f)).toMatchObject({ x: 700 - 16 - 360, y: 800 - 16 - 640 })
+    expect(box(f)).toMatchObject({ x: 700 - 16 - 440, y: 800 - 16 - 720 })
   })
 
   it("re-clamps when shown after a resize while hidden", () => {
@@ -248,6 +248,6 @@ describe("moveBy", () => {
       configurable: true,
     })
     f.show()
-    expect(box(f).x).toBe(500 - 360)
+    expect(box(f).x).toBe(500 - 440)
   })
 })

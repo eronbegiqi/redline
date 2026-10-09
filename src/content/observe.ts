@@ -4,7 +4,12 @@ import {
   placementOf,
   redescribe,
 } from "@/content/describe"
-import { onSuppressFlush, settleStyleAttr, styleAttrBefore, suppress } from "@/content/guard"
+import {
+  onSuppressFlush,
+  settleStyleAttr,
+  styleAttrBefore,
+  suppress,
+} from "@/content/guard"
 import type { Recorder } from "@/shared/recorder"
 import type { ChangeBody, Descriptor, Placement } from "@/shared/types"
 
@@ -178,7 +183,18 @@ const ownText = (parts: string[]) =>
     .replace(/[\uD800-\uDBFF]$/, "")
 
 // Attributes describe() copies into Descriptor.attrs (mirror of its whitelist) and the ones its selector may be built from.
-const DESCRIBED_ATTRS = new Set(["data-testid", "aria-label", "role", "name", "type", "href", "src", "alt", "placeholder", "title"])
+const DESCRIBED_ATTRS = new Set([
+  "data-testid",
+  "aria-label",
+  "role",
+  "name",
+  "type",
+  "href",
+  "src",
+  "alt",
+  "placeholder",
+  "title",
+])
 const SELECTOR_ATTRS = ["id", "data-testid", "data-test", "data-cy"]
 
 /**
@@ -199,7 +215,16 @@ function originalOf(c: Ctx, el: Element): Descriptor {
   let o = origins.get(el)
   if (!o) {
     const d = freshDescriptor(el, w)
-    o = { d: { ...d, classes: [...d.classes], ...(d.attrs ? { attrs: { ...d.attrs } } : {}) }, text: false, classes: false, attrs: new Set() }
+    o = {
+      d: {
+        ...d,
+        classes: [...d.classes],
+        ...(d.attrs ? { attrs: { ...d.attrs } } : {}),
+      },
+      text: false,
+      classes: false,
+      attrs: new Set(),
+    }
     origins.set(el, o)
   }
   for (const [name, old] of w?.attrs ?? []) {
@@ -209,7 +234,8 @@ function originalOf(c: Ctx, el: Element): Descriptor {
     } else if (!o.attrs.has(name)) {
       o.attrs.add(name)
       const attrs = { ...o.d.attrs }
-      if (old !== null && DESCRIBED_ATTRS.has(name)) attrs[name] = old.slice(0, 120)
+      if (old !== null && DESCRIBED_ATTRS.has(name))
+        attrs[name] = old.slice(0, 120)
       else delete attrs[name]
       if (Object.keys(attrs).length) o.d.attrs = attrs
       else delete o.d.attrs
@@ -518,7 +544,8 @@ function onDeleted(c: Ctx, r: MutationRecord, el: Element): void {
 /** Inverse of one childList record (its added nodes leave, its removed nodes come back where they were). */
 function undoChildList(q: MutationRecord): void {
   try {
-    for (const n of q.addedNodes) if (n.parentNode === q.target) q.target.removeChild(n)
+    for (const n of q.addedNodes)
+      if (n.parentNode === q.target) q.target.removeChild(n)
     for (const n of q.removedNodes) q.target.insertBefore(n, slot(q, q.target))
   } catch {
     // the page moved on; best effort

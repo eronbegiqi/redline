@@ -17,8 +17,8 @@ export interface Frame {
 
 const HOST_ATTR = "data-redline-host"
 const MARGIN = 16
-const WIDTH = 360
-const HEIGHT = 640
+const WIDTH = 440
+const HEIGHT = 720
 
 // The host is the only node page CSS can reach (the rest lives in a closed shadow root), so it is
 // !important all the way. Zero-sized: it never intercepts page events; the overlay layers and the
@@ -113,6 +113,11 @@ export function createFrame(): Frame {
       console.error("[redline]", err)
     }
   })
+
+  // Modal dialogs (Radix FocusScope & co.) listen for focus leaving them on `document` and pull it back, which
+  // makes every panel input untypeable. Focus moving into our iframe is none of the page's business.
+  for (const type of ["focusin", "focusout"])
+    root.addEventListener(type, (e) => e.stopPropagation())
 
   window.addEventListener("resize", layout)
   layout()

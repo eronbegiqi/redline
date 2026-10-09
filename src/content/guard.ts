@@ -28,7 +28,10 @@ export const isSuppressed = () => depth > 0
 const firstAttr = new WeakMap<Element, string | null>()
 
 /** Call BEFORE an edit writes inline style. `current` = the attribute right now (a DevTools observer passes the record's old value). */
-export function styleAttrBefore(el: Element, current: string | null = el.getAttribute("style")): string | null {
+export function styleAttrBefore(
+  el: Element,
+  current: string | null = el.getAttribute("style")
+): string | null {
   if (!firstAttr.has(el)) firstAttr.set(el, current)
   return firstAttr.get(el)!
 }

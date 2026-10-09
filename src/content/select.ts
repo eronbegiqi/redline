@@ -122,7 +122,11 @@ export function clipRect(el: Element): Rect4 | null {
   if (first === "fixed") return null
   // The box below is absolutely positioned: ancestors that are not its containing block do not clip it.
   let escapes = first === "absolute"
-  for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+  for (
+    let a = el.parentElement;
+    a && a !== document.documentElement;
+    a = a.parentElement
+  ) {
     const cs = getComputedStyle(a)
     const positioned = cs.position !== "static"
     if (escapes && !positioned) continue
@@ -134,7 +138,12 @@ export function clipRect(el: Element): Rect4 | null {
       const t = r.top + a.clientTop
       const box = { l, t, r: l + a.clientWidth, b: t + a.clientHeight }
       clip = clip
-        ? { l: Math.max(clip.l, box.l), t: Math.max(clip.t, box.t), r: Math.min(clip.r, box.r), b: Math.min(clip.b, box.b) }
+        ? {
+            l: Math.max(clip.l, box.l),
+            t: Math.max(clip.t, box.t),
+            r: Math.min(clip.r, box.r),
+            b: Math.min(clip.b, box.b),
+          }
         : box
     }
     if (cs.position === "fixed") break
@@ -187,7 +196,9 @@ function injectStyles(root: ShadowRoot): () => void {
     sheet.replaceSync(CSS)
     root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]
     return () => {
-      root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet)
+      root.adoptedStyleSheets = root.adoptedStyleSheets.filter(
+        (s) => s !== sheet
+      )
     }
   } catch {
     const style = document.createElement("style")
@@ -223,7 +234,17 @@ function makeBox(cls: string): Box {
   const tag = div("tag")
   root.hidden = true
   root.append(tag)
-  return { root, tag, key: "", text: "", tagKey: "", tagW: 0, tx: 0, ty: 0, pos: "above" }
+  return {
+    root,
+    tag,
+    key: "",
+    text: "",
+    tagKey: "",
+    tagW: 0,
+    tx: 0,
+    ty: 0,
+    pos: "above",
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -290,16 +311,27 @@ function targetOf(e: Event): Element | null {
  * element `t` contains an inert root under the pointer, the user was aiming at that root's content: return the
  * innermost element of it at the point. (A modal drawn over an inert page is not an ancestor of it: not affected.)
  */
-export function inertAt(t: Element | null, x: number, y: number): Element | null {
+export function inertAt(
+  t: Element | null,
+  x: number,
+  y: number
+): Element | null {
   if (!t) return null
   const inside = (e: Element) => {
     const r = e.getBoundingClientRect()
-    return r.width > 0 && r.height > 0 && x >= r.left && x < r.right && y >= r.top && y < r.bottom
+    return (
+      r.width > 0 &&
+      r.height > 0 &&
+      x >= r.left &&
+      x < r.right &&
+      y >= r.top &&
+      y < r.bottom
+    )
   }
   for (const root of t.querySelectorAll("[inert]")) {
     if (!inside(root)) continue
     let hit = root
-    for (let again = true; again; ) {
+    for (let again = true; again;) {
       again = false
       for (let c = hit.lastElementChild; c; c = c.previousElementSibling) {
         if (inside(c)) {
@@ -387,7 +419,8 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       b.root.hidden = true // scrolled completely out of its container
       return null
     }
-    const clipped = !!clip && (cl > r.left || ct > r.top || cr < r.right || cb < r.bottom)
+    const clipped =
+      !!clip && (cl > r.left || ct > r.top || cr < r.right || cb < r.bottom)
     b.root.classList.toggle("clipped", clipped)
     // Clamp into the viewport so an element touching the edge still shows all four sides.
     const x0 = Math.max(0, snap(cl - (cl > r.left ? 0 : ring)))
@@ -414,16 +447,28 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       b.tagW = b.tag.offsetWidth
     }
     // Above the box if it fits, else below, else inside (only for elements that fill the viewport).
-    const fits = { above: y0 >= TAG_H + TAG_GAP, below: y1 + TAG_H + TAG_GAP <= vh }
+    const fits = {
+      above: y0 >= TAG_H + TAG_GAP,
+      below: y1 + TAG_H + TAG_GAP <= vh,
+    }
     const at = (pos: Box["pos"]) => {
       b.pos = pos
       // Keep the label inside the viewport when the box starts near the right edge.
       b.tx = x0 + (pos === "in" ? 6 : 0) + Math.min(0, vw - 4 - b.tagW - x0)
-      b.ty = pos === "above" ? y0 - TAG_GAP - TAG_H : pos === "below" ? y1 + TAG_GAP : y0 + 6
+      b.ty =
+        pos === "above"
+          ? y0 - TAG_GAP - TAG_H
+          : pos === "below"
+            ? y1 + TAG_GAP
+            : y0 + 6
     }
     at(fits.above ? "above" : fits.below ? "below" : "in")
     if (avoid && !avoid.root.hidden && b.pos !== "in") {
-      const clash = b.tx < avoid.tx + avoid.tagW && avoid.tx < b.tx + b.tagW && b.ty < avoid.ty + TAG_H && avoid.ty < b.ty + TAG_H
+      const clash =
+        b.tx < avoid.tx + avoid.tagW &&
+        avoid.tx < b.tx + b.tagW &&
+        b.ty < avoid.ty + TAG_H &&
+        avoid.ty < b.ty + TAG_H
       const other = b.pos === "above" ? "below" : "above"
       if (clash && fits[other]) at(other)
     }
@@ -448,7 +493,11 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
     sync()
     const live = mode === "select"
     const r = paint(selBox, sel)
-    paint(hoverBox, live && !editing && !drag && hoverEl !== sel ? hoverEl : null, selBox)
+    paint(
+      hoverBox,
+      live && !editing && !drag && hoverEl !== sel ? hoverEl : null,
+      selBox
+    )
     if (r && sel) {
       const c = selBox.root.classList
       c.toggle("live", live && !editing && resizable(sel))
@@ -497,7 +546,10 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       el,
       before: el.textContent ?? "",
       prevAttr: el.getAttribute("contenteditable"),
-      saved: Array.from(el.childNodes, (n): [Node, string | null] => [n, n.nodeValue]),
+      saved: Array.from(el.childNodes, (n): [Node, string | null] => [
+        n,
+        n.nodeValue,
+      ]),
       onBlur: () => safe(() => endEdit(true)),
     }
     editing = ed
@@ -559,8 +611,18 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
       h0: r.height,
       w: r.width,
       h: r.height,
-      ex: content ? n("padding-left") + n("padding-right") + n("border-left-width") + n("border-right-width") : 0,
-      ey: content ? n("padding-top") + n("padding-bottom") + n("border-top-width") + n("border-bottom-width") : 0,
+      ex: content
+        ? n("padding-left") +
+          n("padding-right") +
+          n("border-left-width") +
+          n("border-right-width")
+        : 0,
+      ey: content
+        ? n("padding-top") +
+          n("padding-bottom") +
+          n("border-top-width") +
+          n("border-bottom-width")
+        : 0,
       orig: { width: keep("width"), height: keep("height") },
       prevStyleAttr: styleAttrBefore(el),
     }
@@ -576,7 +638,13 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
   function resizeMove(d: Resize, e: PointerEvent) {
     e.stopImmediatePropagation()
     if (!(e.buttons & 1)) return endResize(true) // pointerup was lost (released over DevTools, ...)
-    const s = nextSize({ w: d.w0, h: d.h0 }, e.clientX - d.x0, e.clientY - d.y0, d.ax, e.shiftKey)
+    const s = nextSize(
+      { w: d.w0, h: d.h0 },
+      e.clientX - d.x0,
+      e.clientY - d.y0,
+      d.ax,
+      e.shiftKey
+    )
     d.w = s.w
     d.h = s.h
     // Live preview only; endResize puts the originals back and records once.
@@ -607,13 +675,27 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
     if (commit) {
       // One setStyle per axis that actually changed; the Recorder merges repeated drags into one entry.
       let changed = false
-      const apply = (prop: "width" | "height", now: number, was: number, extra: number) => {
+      const apply = (
+        prop: "width" | "height",
+        now: number,
+        was: number,
+        extra: number
+      ) => {
         if (Math.abs(now - was) < 0.5) return
         let value = css(now, extra)
         // Dragged back to the size it had before its first drag: reuse that exact string so the Recorder cancels the
         // entry out (computed sizes are fractional, ours are whole px).
-        const first = rec.list().find((c) => c.kind === "style" && c.el === elementId(d.el) && c.prop === prop)
-        if (first?.kind === "style" && first.before?.endsWith("px") && Math.abs(parseFloat(first.before) - (now - extra)) < 0.5) {
+        const first = rec
+          .list()
+          .find(
+            (c) =>
+              c.kind === "style" && c.el === elementId(d.el) && c.prop === prop
+          )
+        if (
+          first?.kind === "style" &&
+          first.before?.endsWith("px") &&
+          Math.abs(parseFloat(first.before) - (now - extra)) < 0.5
+        ) {
           value = first.before
         }
         setStyle(rec, d.el, prop, value)
@@ -650,7 +732,10 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
   }
 
   const on = (type: string, f: (e: never) => void) =>
-    window.addEventListener(type, (e) => safe(() => f(e as never)), { capture: true, signal })
+    window.addEventListener(type, (e) => safe(() => f(e as never)), {
+      capture: true,
+      signal,
+    })
 
   function onSwallowed(e: MouseEvent) {
     if (mode !== "select") return
@@ -676,7 +761,8 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
     if (e.type === "pointerdown") {
       // We cancel mousedown, so focus would stay in our panel iframe: take it back for Esc / Enter.
       ;(root.activeElement as HTMLElement | null)?.blur()
-      if (e.button === 0 && (e as PointerEvent).isPrimary !== false) userSelect(pickable(t))
+      if (e.button === 0 && (e as PointerEvent).isPrimary !== false)
+        userSelect(pickable(t))
     } else if (e.type === "dblclick") {
       const el = pickable(t)
       if (el && isTextLeaf(el)) {
@@ -713,7 +799,11 @@ export function createSelector(opts: SelectorOptions): SelectorApi {
     } else if (e.key === "Enter" && !e.shiftKey && editing) {
       endEdit(true)
       swallow(e)
-    } else if (e.key === " " && editing && /^(button|summary)$/.test(editing.el.localName)) {
+    } else if (
+      e.key === " " &&
+      editing &&
+      /^(button|summary)$/.test(editing.el.localName)
+    ) {
       // Chrome treats Space in these as "activate" and never inserts the character.
       e.preventDefault()
       document.execCommand("insertText", false, " ")

@@ -1,5 +1,20 @@
-import { afterEach, beforeEach, describe as suite, expect, it, vi } from "vitest"
-import { describe, elementById, elementId, placementOf, redescribe, sanitizeHint, selectorFor } from "@/content/describe"
+import {
+  afterEach,
+  beforeEach,
+  describe as suite,
+  expect,
+  it,
+  vi,
+} from "vitest"
+import {
+  describe,
+  elementById,
+  elementId,
+  placementOf,
+  redescribe,
+  sanitizeHint,
+  selectorFor,
+} from "@/content/describe"
 
 // jsdom has no CSS.escape; this is the CSSOM spec algorithm so `#1abc` & co. take the real code path.
 function cssEscape(value: string): string {
@@ -9,10 +24,22 @@ function cssEscape(value: string): string {
     const c = s.charCodeAt(i)
     const digit = c >= 0x30 && c <= 0x39
     if (c === 0) out += "�"
-    else if ((c >= 1 && c <= 0x1f) || c === 0x7f || (i === 0 && digit) || (i === 1 && digit && s.charCodeAt(0) === 0x2d))
+    else if (
+      (c >= 1 && c <= 0x1f) ||
+      c === 0x7f ||
+      (i === 0 && digit) ||
+      (i === 1 && digit && s.charCodeAt(0) === 0x2d)
+    )
       out += `\\${c.toString(16)} `
     else if (i === 0 && s.length === 1 && c === 0x2d) out += "\\" + s[i]
-    else if (c >= 0x80 || c === 0x2d || c === 0x5f || digit || (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a))
+    else if (
+      c >= 0x80 ||
+      c === 0x2d ||
+      c === 0x5f ||
+      digit ||
+      (c >= 0x41 && c <= 0x5a) ||
+      (c >= 0x61 && c <= 0x7a)
+    )
       out += s[i]
     else out += "\\" + s[i]
   }
@@ -29,7 +56,8 @@ function cssEscapeIs(present: boolean) {
   })
 }
 
-const parse = (html: string) => new DOMParser().parseFromString(html, "text/html")
+const parse = (html: string) =>
+  new DOMParser().parseFromString(html, "text/html")
 const $ = <T extends Element = Element>(root: ParentNode, sel: string): T => {
   const el = root.querySelector<T>(sel)
   if (!el) throw new Error(`fixture is missing ${sel}`)
@@ -37,7 +65,9 @@ const $ = <T extends Element = Element>(root: ParentNode, sel: string): T => {
 }
 
 /** The postcondition, for EVERY element under `root` (plus root's own subtree docs, e.g. template content). */
-function expectUniqueEverywhere(root: Document | DocumentFragment | ShadowRoot): number {
+function expectUniqueEverywhere(
+  root: Document | DocumentFragment | ShadowRoot
+): number {
   const bad: string[] = []
   const all = root.querySelectorAll("*")
   for (const el of all) {
@@ -49,13 +79,15 @@ function expectUniqueEverywhere(root: Document | DocumentFragment | ShadowRoot):
       bad.push(`<${el.localName}> selector "${sel}" is invalid: ${e}`)
       continue
     }
-    if (found.length !== 1 || found[0] !== el) bad.push(`<${el.localName}> "${sel}" matched ${found.length}`)
+    if (found.length !== 1 || found[0] !== el)
+      bad.push(`<${el.localName}> "${sel}" matched ${found.length}`)
   }
   expect(bad).toEqual([])
   return all.length
 }
 
-const deep = (n: number, leaf = "<p>leaf</p>") => "<div>".repeat(n) + leaf + "</div>".repeat(n)
+const deep = (n: number, leaf = "<p>leaf</p>") =>
+  "<div>".repeat(n) + leaf + "</div>".repeat(n)
 
 const DOCS: Record<string, () => Document> = {
   "duplicate and awkward ids": () =>
@@ -74,11 +106,12 @@ const DOCS: Record<string, () => Document> = {
     parse(`<svg viewBox="0 0 10 10"><g><path d="M0 0"/><path d="M1 1"/><circle r="1"/></g><g><path/></g>
       <foreignObject><div><p>hi</p><p>there</p></div></foreignObject><a href="#"><text>t</text></a></svg>
       <svg><svg><rect/></svg></svg><math><mrow><mi>x</mi><mi>y</mi></mrow></math><div><a href="#">html a</a></div>`),
-  "tables": () =>
+  tables: () =>
     parse(`<table><caption>c</caption><colgroup><col><col></colgroup><thead><tr><th>h</th><th>h</th></tr></thead>
       <tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody><tfoot><tr><td>f</td></tr></tfoot></table>
       <table><tr><td>second table</td></tr></table>`),
-  "only children and deep nesting": () => parse(deep(60) + `<main>${deep(25, "<span></span><span></span>")}</main>`),
+  "only children and deep nesting": () =>
+    parse(deep(60) + `<main>${deep(25, "<span></span><span></span>")}</main>`),
   "special class names (never part of a selector)": () =>
     parse(`<div class="a:b w-1/2 [&>*]:p-1 hover:bg-[#fff] 1x \\ &quot;"><p class="x.y">1</p><p class="x.y">2</p></div>
       <div class="a:b w-1/2 [&>*]:p-1 hover:bg-[#fff] 1x \\ &quot;"><p class="x.y">3</p></div>`),
@@ -88,7 +121,7 @@ const DOCS: Record<string, () => Document> = {
       <my-el><my-el></my-el><my-el></my-el></my-el><x:y><x:y></x:y></x:y><custom-ünï></custom-ünï>`),
   "flat list and mixed inline content": () =>
     parse(
-      `<ul>${"<li>x</li>".repeat(40)}</ul><p>text<b>bold</b> text<b>again</b><br><br><i>i</i><!--c-->tail</p><hr><hr><img><img>`,
+      `<ul>${"<li>x</li>".repeat(40)}</ul><p>text<b>bold</b> text<b>again</b><br><br><i>i</i><!--c-->tail</p><hr><hr><img><img>`
     ),
 }
 
@@ -99,40 +132,54 @@ function mixedNamespaces(): Document {
   const html = "http://www.w3.org/1999/xhtml"
   const svg = "http://www.w3.org/2000/svg"
   for (const [ns, name] of [
-    [html, "a"], [svg, "a"], [html, "a"], [svg, "a"], ["urn:x", "item"], ["urn:x", "item"], ["urn:y", "item"],
-  ] as const) m.append(doc.createElementNS(ns, name))
+    [html, "a"],
+    [svg, "a"],
+    [html, "a"],
+    [svg, "a"],
+    ["urn:x", "item"],
+    ["urn:x", "item"],
+    ["urn:y", "item"],
+  ] as const)
+    m.append(doc.createElementNS(ns, name))
   return doc
 }
 
 for (const withCssEscape of [true, false]) {
-  suite(`selectorFor postcondition (CSS.escape ${withCssEscape ? "present" : "missing, as in jsdom"})`, () => {
-    cssEscapeIs(withCssEscape)
+  suite(
+    `selectorFor postcondition (CSS.escape ${withCssEscape ? "present" : "missing, as in jsdom"})`,
+    () => {
+      cssEscapeIs(withCssEscape)
 
-    for (const [name, make] of Object.entries(DOCS)) {
-      it(`querySelectorAll(selectorFor(el)) is exactly [el] for every element: ${name}`, () => {
-        expect(expectUniqueEverywhere(make())).toBeGreaterThan(3)
+      for (const [name, make] of Object.entries(DOCS)) {
+        it(`querySelectorAll(selectorFor(el)) is exactly [el] for every element: ${name}`, () => {
+          expect(expectUniqueEverywhere(make())).toBeGreaterThan(3)
+        })
+      }
+
+      it("holds for mixed-namespace siblings", () => {
+        expectUniqueEverywhere(mixedNamespaces())
+      })
+
+      it("holds inside <template> content and open shadow roots (their own scope)", () => {
+        const doc = parse(
+          `<template id="t"><div><span>1</span><span>2</span></div></template><div id="host"></div>`
+        )
+        expectUniqueEverywhere($<HTMLTemplateElement>(doc, "#t").content)
+        const root = $(doc, "#host").attachShadow({ mode: "open" })
+        root.innerHTML = `<p>a</p><p>b</p><div id="in"><b></b></div>`
+        expectUniqueEverywhere(root)
       })
     }
-
-    it("holds for mixed-namespace siblings", () => {
-      expectUniqueEverywhere(mixedNamespaces())
-    })
-
-    it("holds inside <template> content and open shadow roots (their own scope)", () => {
-      const doc = parse(`<template id="t"><div><span>1</span><span>2</span></div></template><div id="host"></div>`)
-      expectUniqueEverywhere($<HTMLTemplateElement>(doc, "#t").content)
-      const root = $(doc, "#host").attachShadow({ mode: "open" })
-      root.innerHTML = `<p>a</p><p>b</p><div id="in"><b></b></div>`
-      expectUniqueEverywhere(root)
-    })
-  })
+  )
 }
 
 suite("selectorFor shape", () => {
   cssEscapeIs(true)
 
   it("prefers a unique #id, escaped", () => {
-    const doc = parse(`<div id="1abc"></div><div id="a:b c"></div><div id="plain"></div>`)
+    const doc = parse(
+      `<div id="1abc"></div><div id="a:b c"></div><div id="plain"></div>`
+    )
     expect(selectorFor($(doc, "#plain"))).toBe("#plain")
     expect(selectorFor($(doc, '[id="1abc"]'))).toBe("#\\31 abc")
     expect(selectorFor($(doc, '[id="a:b c"]'))).toBe("#a\\:b\\ c")
@@ -148,38 +195,52 @@ suite("selectorFor shape", () => {
   it("uses data-testid / data-test / data-cy when unique, quoting hostile values", () => {
     const doc = parse(
       `<b data-testid="one"></b><b data-testid="dup"></b><b data-testid="dup"></b><i data-test="t"></i><u data-cy="c"></u>
-       <s data-testid='a"b\\c'></s>`,
+       <s data-testid='a"b\\c'></s>`
     )
     expect(selectorFor($(doc, "b"))).toBe('[data-testid="one"]')
     expect(selectorFor($(doc, "i"))).toBe('[data-test="t"]')
     expect(selectorFor($(doc, "u"))).toBe('[data-cy="c"]')
     expect(selectorFor($(doc, "s"))).toBe('[data-testid="a\\"b\\\\c"]')
-    expect(selectorFor(doc.querySelectorAll("b")[1])).not.toContain("data-testid")
+    expect(selectorFor(doc.querySelectorAll("b")[1])).not.toContain(
+      "data-testid"
+    )
   })
 
   it("never puts classes in the selector, and omits nth-of-type for only children", () => {
-    const doc = parse(`<main class="a b"><ul class="list"><li class="x">1</li><li class="x">2</li></ul></main>`)
-    expect(selectorFor($(doc, "li:nth-of-type(2)"))).toBe("main > ul > li:nth-of-type(2)")
+    const doc = parse(
+      `<main class="a b"><ul class="list"><li class="x">1</li><li class="x">2</li></ul></main>`
+    )
+    expect(selectorFor($(doc, "li:nth-of-type(2)"))).toBe(
+      "main > ul > li:nth-of-type(2)"
+    )
     expect(selectorFor($(doc, "ul"))).toBe("body > main > ul")
     expect(selectorFor($(doc, "ul"))).not.toContain(".")
   })
 
   it("returns a readable path: the last 3 segments, never fewer than needed to be unique", () => {
-    const doc = parse(`<div><ul><li>1</li><li>2</li></ul><ul><li>3</li><li>4</li></ul></div>`)
+    const doc = parse(
+      `<div><ul><li>1</li><li>2</li></ul><ul><li>3</li><li>4</li></ul></div>`
+    )
     // the shortest unique suffix would be "ul:nth-of-type(2) > li:nth-of-type(2)": we add one level of context
-    expect(selectorFor(doc.querySelectorAll("li")[3])).toBe("div > ul:nth-of-type(2) > li:nth-of-type(2)")
+    expect(selectorFor(doc.querySelectorAll("li")[3])).toBe(
+      "div > ul:nth-of-type(2) > li:nth-of-type(2)"
+    )
     // needs 4 segments to be unique: more than the usual 3, and exactly as many as necessary
     const wide = parse(
       `<div><section><article><p>1</p></article></section><section><article><p>2</p></article></section></div>` +
-        `<div><section><article><p>3</p></article></section></div>`,
+        `<div><section><article><p>3</p></article></section></div>`
     )
     const ps = wide.querySelectorAll("p")
-    expect(selectorFor(ps[0])).toBe("div:nth-of-type(1) > section:nth-of-type(1) > article > p")
+    expect(selectorFor(ps[0])).toBe(
+      "div:nth-of-type(1) > section:nth-of-type(1) > article > p"
+    )
     expect(wide.querySelectorAll(selectorFor(ps[0]))).toHaveLength(1)
   })
 
   it("keeps an anchored path whole up to 6 segments, else the last 3", () => {
-    const doc = parse(`<div id="app"><a><b><i><u><s><em>x</em></s></u></i></b></a></div>`)
+    const doc = parse(
+      `<div id="app"><a><b><i><u><s><em>x</em></s></u></i></b></a></div>`
+    )
     expect(selectorFor($(doc, "i"))).toBe("#app > a > b > i")
     expect(selectorFor($(doc, "u"))).toBe("#app > a > b > i > u")
     expect(selectorFor($(doc, "s"))).toBe("#app > a > b > i > u > s")
@@ -187,15 +248,21 @@ suite("selectorFor shape", () => {
   })
 
   it("includes ancestors that carry an anchor attribute in the path", () => {
-    const doc = parse(`<main data-testid="page"><ul><li>a</li><li>b</li></ul></main>`)
-    expect(selectorFor(doc.querySelectorAll("li")[1])).toBe('[data-testid="page"] > ul > li:nth-of-type(2)')
+    const doc = parse(
+      `<main data-testid="page"><ul><li>a</li><li>b</li></ul></main>`
+    )
+    expect(selectorFor(doc.querySelectorAll("li")[1])).toBe(
+      '[data-testid="page"] > ul > li:nth-of-type(2)'
+    )
   })
 
   it("climbs to the nearest unique anchor ancestor", () => {
     const doc = parse(
-      `<section id="hero"><div><p>a</p><p>b</p></div></section><section><div><p>a</p><p>b</p></div></section>`,
+      `<section id="hero"><div><p>a</p><p>b</p></div></section><section><div><p>a</p><p>b</p></div></section>`
     )
-    expect(selectorFor(doc.querySelectorAll("p")[1])).toBe("#hero > div > p:nth-of-type(2)")
+    expect(selectorFor(doc.querySelectorAll("p")[1])).toBe(
+      "#hero > div > p:nth-of-type(2)"
+    )
   })
 
   it("handles <html> and <body>", () => {
@@ -250,7 +317,7 @@ suite("describe / redescribe", () => {
     const el = mount(
       `<a id="go" class="btn primary" href="/x" data-testid="cta" data-secret="no" aria-label="Go" title="t" onclick="x()">
          Get   started <b>bold</b>
-         now</a>`,
+         now</a>`
     )
     expect(describe(el)).toEqual({
       selector: "#go",
@@ -258,19 +325,26 @@ suite("describe / redescribe", () => {
       id: "go",
       classes: ["btn", "primary"],
       text: "Get started now",
-      attrs: { "data-testid": "cta", href: "/x", "aria-label": "Go", title: "t" },
+      attrs: {
+        "data-testid": "cta",
+        href: "/x",
+        "aria-label": "Go",
+        title: "t",
+      },
     })
   })
 
   it("omits empty optional fields", () => {
     const d = describe(mount("<div></div>"))
     expect(d).toEqual({ selector: "body > div", tag: "div", classes: [] })
-    expect("id" in d || "text" in d || "attrs" in d || "source" in d).toBe(false)
+    expect("id" in d || "text" in d || "attrs" in d || "source" in d).toBe(
+      false
+    )
   })
 
   it("caps classes at 8, text at 80, attribute values at 120", () => {
     const el = mount(
-      `<p class="${"c1 c2 c3 c4 c5 c6 c7 c8 c9 c10"}" title="${"t".repeat(300)}">${"é".repeat(200)}</p>`,
+      `<p class="${"c1 c2 c3 c4 c5 c6 c7 c8 c9 c10"}" title="${"t".repeat(300)}">${"é".repeat(200)}</p>`
     )
     const d = describe(el)
     expect(d.classes).toEqual(["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"])
@@ -285,7 +359,9 @@ suite("describe / redescribe", () => {
 
   it("reads the id attribute, not a clobbered el.id", () => {
     const form = mount(`<form id="f"><input name="id"></form>`)
-    Object.defineProperty(form, "id", { value: document.createElement("input") }) // what a browser does for <input name=id>
+    Object.defineProperty(form, "id", {
+      value: document.createElement("input"),
+    }) // what a browser does for <input name=id>
     expect(describe(form).id).toBe("f")
   })
 
@@ -303,12 +379,19 @@ suite("describe / redescribe", () => {
 
   it("works for svg elements (className is not a string there)", () => {
     document.body.innerHTML = `<svg><path class="p q" d="M0 0"/></svg>`
-    expect(describe(document.querySelector("path")!).classes).toEqual(["p", "q"])
+    expect(describe(document.querySelector("path")!).classes).toEqual([
+      "p",
+      "q",
+    ])
   })
 
   it("never throws on a node that falls apart", () => {
     const el = mount(`<div></div>`)
-    Object.defineProperty(el, "getAttribute", { value: () => { throw new Error("boom") } })
+    Object.defineProperty(el, "getAttribute", {
+      value: () => {
+        throw new Error("boom")
+      },
+    })
     expect(describe(el).tag).toBe("div")
   })
 })
@@ -339,7 +422,10 @@ suite("placementOf", () => {
     expect(html.index).toBe(0)
     expect(html.parent.tag).toBe("#document")
     const loose = document.createElement("div")
-    expect(placementOf(loose)).toMatchObject({ index: 0, parent: { selector: "", tag: "" } })
+    expect(placementOf(loose)).toMatchObject({
+      index: 0,
+      parent: { selector: "", tag: "" },
+    })
   })
 })
 
@@ -348,7 +434,8 @@ suite("probe protocol (content side)", () => {
   const answer = (fn: (target: Element | null) => string | null) => {
     const handler = () => {
       const result = fn(document.querySelector("[data-redline-probe]"))
-      if (result !== null) document.documentElement.setAttribute("data-redline-result", result)
+      if (result !== null)
+        document.documentElement.setAttribute("data-redline-result", result)
     }
     document.addEventListener("redline:probe", handler)
     off = () => document.removeEventListener("redline:probe", handler)
@@ -368,17 +455,30 @@ suite("probe protocol (content side)", () => {
     const seen: (string | null)[] = []
     answer((t) => {
       seen.push(t?.id ?? null)
-      return JSON.stringify({ framework: "react", component: "Hero", file: "src/Hero.tsx", line: 4 })
+      return JSON.stringify({
+        framework: "react",
+        component: "Hero",
+        file: "src/Hero.tsx",
+        line: 4,
+      })
     })
     const d = redescribe(document.getElementById("b")!)
     expect(seen).toEqual(["b"])
-    expect(d.source).toEqual({ framework: "react", component: "Hero", file: "src/Hero.tsx", line: 4 })
+    expect(d.source).toEqual({
+      framework: "react",
+      component: "Hero",
+      file: "src/Hero.tsx",
+      line: 4,
+    })
     expect(leftovers()).toEqual([0, false])
   })
 
   it("probes <html> too and still cleans up", () => {
     answer(() => JSON.stringify({ framework: "vue", component: "App" }))
-    expect(redescribe(document.documentElement).source).toEqual({ framework: "vue", component: "App" })
+    expect(redescribe(document.documentElement).source).toEqual({
+      framework: "vue",
+      component: "App",
+    })
     expect(leftovers()).toEqual([0, false])
   })
 
@@ -390,7 +490,10 @@ suite("probe protocol (content side)", () => {
 
   it("ignores a result planted before the probe ran", () => {
     document.body.innerHTML = `<div></div>`
-    document.documentElement.setAttribute("data-redline-result", JSON.stringify({ framework: "react", component: "Planted" }))
+    document.documentElement.setAttribute(
+      "data-redline-result",
+      JSON.stringify({ framework: "react", component: "Planted" })
+    )
     expect(redescribe(document.querySelector("div")!).source).toBeUndefined()
     expect(leftovers()).toEqual([0, false])
   })
@@ -413,7 +516,9 @@ suite("probe protocol (content side)", () => {
     document.body.innerHTML = `<div id="x"></div>`
     answer(() => JSON.stringify({ framework: "svelte", file: "a.svelte" }))
     const names: string[] = []
-    const mo = new MutationObserver((records) => records.forEach((r) => names.push(r.attributeName ?? "")))
+    const mo = new MutationObserver((records) =>
+      records.forEach((r) => names.push(r.attributeName ?? ""))
+    )
     mo.observe(document.documentElement, { attributes: true, subtree: true })
     redescribe(document.getElementById("x")!)
     mo.takeRecords().forEach((r) => names.push(r.attributeName ?? ""))
@@ -423,70 +528,173 @@ suite("probe protocol (content side)", () => {
   })
 })
 
-suite("source hint validation (the page can plant its own probe answer)", () => {
-  const ok = { framework: "react", component: "Hero", chain: ["Hero", "App"], file: "src/Hero.tsx", line: 4, column: 7 }
-
-  it("passes a well-formed hint through unchanged", () => {
-    expect(sanitizeHint(ok)).toEqual(ok)
-    expect(sanitizeHint({ framework: "vue" })).toEqual({ framework: "vue" })
-  })
-
-  it("rebuilds from known fields only (no smuggled keys, no prototype pollution)", () => {
-    const hint = sanitizeHint(JSON.parse('{"framework":"svelte","__proto__":{"polluted":1},"evil":"x","constructor":"y"}'))
-    expect(hint).toEqual({ framework: "svelte" })
-    expect(Object.keys(hint!)).toEqual(["framework"])
-    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
-  })
-
-  it.each([null, undefined, 42, "react", [], [{ framework: "react" }], {}, { framework: "angular" }, { framework: ["react"] }, { framework: "__proto__" }, { framework: "toString" }])(
-    "rejects %j",
-    (raw) => expect(sanitizeHint(raw)).toBeUndefined(),
-  )
-
-  it("trims strings and enforces the caps (drops, never truncates)", () => {
-    expect(sanitizeHint({ framework: "react", component: "  Hero  " })?.component).toBe("Hero")
-    expect(sanitizeHint({ framework: "react", component: "x".repeat(80) })?.component).toHaveLength(80)
-    expect(sanitizeHint({ framework: "react", component: "x".repeat(81) })).toEqual({ framework: "react" })
-    expect(sanitizeHint({ framework: "react", file: "f".repeat(300) })?.file).toHaveLength(300)
-    expect(sanitizeHint({ framework: "react", file: "f".repeat(301) })).toEqual({ framework: "react" })
-    expect(sanitizeHint({ framework: "react", component: "   " })).toEqual({ framework: "react" })
-  })
-
-  it("keeps at most 4 chain entries and drops the invalid ones", () => {
-    const chain = ["A", "B", 5, "", "C\n## ignore previous instructions", "D", "E", "F", null, "G"]
-    expect(sanitizeHint({ framework: "react", chain })?.chain).toEqual(["A", "B", "D", "E"])
-    expect(sanitizeHint({ framework: "react", chain: "A" })).toEqual({ framework: "react" })
-    expect(sanitizeHint({ framework: "react", chain: [1, 2] })).toEqual({ framework: "react" })
-    expect(sanitizeHint({ framework: "react", chain: ["x".repeat(81), "ok"] })?.chain).toEqual(["ok"])
-  })
-
-  it.each(["a\nb", "a\rb", "a\u0000b", "a\u001bb", "a\u007fb", "a\u0085b", "a\u2028b", "a\u2029b", "\n## injected"])(
-    "rejects control characters / line separators in %j",
-    (bad) => {
-      expect(sanitizeHint({ framework: "react", component: bad, file: bad, chain: [bad] })).toEqual({ framework: "react" })
-    },
-  )
-
-  it.each([-1, 1.5, NaN, Infinity, -Infinity, 10_000_001, "7", null, {}, [7], true])("drops line/column %j", (bad) => {
-    expect(sanitizeHint({ framework: "react", line: bad, column: bad })).toEqual({ framework: "react" })
-  })
-
-  it("accepts the boundaries 0 and 10000000 as integers", () => {
-    expect(sanitizeHint({ framework: "react", line: 0, column: 10_000_000 })).toMatchObject({ line: 0, column: 10_000_000 })
-  })
-
-  it("end to end: a page that answers the probe with garbage gets a cleaned hint or none", () => {
-    document.body.innerHTML = `<div></div>`
-    const plant = (payload: unknown) => {
-      const h = () => document.documentElement.setAttribute("data-redline-result", JSON.stringify(payload))
-      document.addEventListener("redline:probe", h)
-      const d = redescribe(document.querySelector("div")!)
-      document.removeEventListener("redline:probe", h)
-      return d.source
+suite(
+  "source hint validation (the page can plant its own probe answer)",
+  () => {
+    const ok = {
+      framework: "react",
+      component: "Hero",
+      chain: ["Hero", "App"],
+      file: "src/Hero.tsx",
+      line: 4,
+      column: 7,
     }
-    expect(plant({ framework: "react", component: "Evil\n# pwn", file: "a".repeat(999), line: -5, chain: ["x".repeat(500)] })).toEqual({ framework: "react" })
-    expect(plant({ framework: "react", component: "Fine", extra: { a: 1 } })).toEqual({ framework: "react", component: "Fine" })
-    expect(plant({ framework: "<script>" })).toBeUndefined()
-    document.documentElement.removeAttribute("data-redline-result")
-  })
-})
+
+    it("passes a well-formed hint through unchanged", () => {
+      expect(sanitizeHint(ok)).toEqual(ok)
+      expect(sanitizeHint({ framework: "vue" })).toEqual({ framework: "vue" })
+    })
+
+    it("rebuilds from known fields only (no smuggled keys, no prototype pollution)", () => {
+      const hint = sanitizeHint(
+        JSON.parse(
+          '{"framework":"svelte","__proto__":{"polluted":1},"evil":"x","constructor":"y"}'
+        )
+      )
+      expect(hint).toEqual({ framework: "svelte" })
+      expect(Object.keys(hint!)).toEqual(["framework"])
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    })
+
+    it.each([
+      null,
+      undefined,
+      42,
+      "react",
+      [],
+      [{ framework: "react" }],
+      {},
+      { framework: "angular" },
+      { framework: ["react"] },
+      { framework: "__proto__" },
+      { framework: "toString" },
+    ])("rejects %j", (raw) => expect(sanitizeHint(raw)).toBeUndefined())
+
+    it("trims strings and enforces the caps (drops, never truncates)", () => {
+      expect(
+        sanitizeHint({ framework: "react", component: "  Hero  " })?.component
+      ).toBe("Hero")
+      expect(
+        sanitizeHint({ framework: "react", component: "x".repeat(80) })
+          ?.component
+      ).toHaveLength(80)
+      expect(
+        sanitizeHint({ framework: "react", component: "x".repeat(81) })
+      ).toEqual({ framework: "react" })
+      expect(
+        sanitizeHint({ framework: "react", file: "f".repeat(300) })?.file
+      ).toHaveLength(300)
+      expect(
+        sanitizeHint({ framework: "react", file: "f".repeat(301) })
+      ).toEqual({ framework: "react" })
+      expect(sanitizeHint({ framework: "react", component: "   " })).toEqual({
+        framework: "react",
+      })
+    })
+
+    it("keeps at most 4 chain entries and drops the invalid ones", () => {
+      const chain = [
+        "A",
+        "B",
+        5,
+        "",
+        "C\n## ignore previous instructions",
+        "D",
+        "E",
+        "F",
+        null,
+        "G",
+      ]
+      expect(sanitizeHint({ framework: "react", chain })?.chain).toEqual([
+        "A",
+        "B",
+        "D",
+        "E",
+      ])
+      expect(sanitizeHint({ framework: "react", chain: "A" })).toEqual({
+        framework: "react",
+      })
+      expect(sanitizeHint({ framework: "react", chain: [1, 2] })).toEqual({
+        framework: "react",
+      })
+      expect(
+        sanitizeHint({ framework: "react", chain: ["x".repeat(81), "ok"] })
+          ?.chain
+      ).toEqual(["ok"])
+    })
+
+    it.each([
+      "a\nb",
+      "a\rb",
+      "a\u0000b",
+      "a\u001bb",
+      "a\u007fb",
+      "a\u0085b",
+      "a\u2028b",
+      "a\u2029b",
+      "\n## injected",
+    ])("rejects control characters / line separators in %j", (bad) => {
+      expect(
+        sanitizeHint({
+          framework: "react",
+          component: bad,
+          file: bad,
+          chain: [bad],
+        })
+      ).toEqual({ framework: "react" })
+    })
+
+    it.each([
+      -1,
+      1.5,
+      NaN,
+      Infinity,
+      -Infinity,
+      10_000_001,
+      "7",
+      null,
+      {},
+      [7],
+      true,
+    ])("drops line/column %j", (bad) => {
+      expect(
+        sanitizeHint({ framework: "react", line: bad, column: bad })
+      ).toEqual({ framework: "react" })
+    })
+
+    it("accepts the boundaries 0 and 10000000 as integers", () => {
+      expect(
+        sanitizeHint({ framework: "react", line: 0, column: 10_000_000 })
+      ).toMatchObject({ line: 0, column: 10_000_000 })
+    })
+
+    it("end to end: a page that answers the probe with garbage gets a cleaned hint or none", () => {
+      document.body.innerHTML = `<div></div>`
+      const plant = (payload: unknown) => {
+        const h = () =>
+          document.documentElement.setAttribute(
+            "data-redline-result",
+            JSON.stringify(payload)
+          )
+        document.addEventListener("redline:probe", h)
+        const d = redescribe(document.querySelector("div")!)
+        document.removeEventListener("redline:probe", h)
+        return d.source
+      }
+      expect(
+        plant({
+          framework: "react",
+          component: "Evil\n# pwn",
+          file: "a".repeat(999),
+          line: -5,
+          chain: ["x".repeat(500)],
+        })
+      ).toEqual({ framework: "react" })
+      expect(
+        plant({ framework: "react", component: "Fine", extra: { a: 1 } })
+      ).toEqual({ framework: "react", component: "Fine" })
+      expect(plant({ framework: "<script>" })).toBeUndefined()
+      document.documentElement.removeAttribute("data-redline-result")
+    })
+  }
+)

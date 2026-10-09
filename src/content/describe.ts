@@ -41,7 +41,10 @@ export function redescribe(el: Element): Descriptor {
     // getAttribute, not el.id / el.classList: <input name="id"> inside a <form> shadows form.id.
     const id = el.getAttribute("id")
     if (id) d.id = id
-    d.classes = (el.getAttribute("class") ?? "").split(/\s+/).filter(Boolean).slice(0, 8)
+    d.classes = (el.getAttribute("class") ?? "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 8)
     const text = ownText(el)
     if (text) d.text = text
     const attrs = attrsOf(el)
@@ -65,19 +68,36 @@ export function placementOf(el: Element): Placement {
     p instanceof Element
       ? redescribe(p)
       : { selector: "", tag: (p?.nodeName ?? "").toLowerCase(), classes: [] }
-  return next ? { parent, index: Math.max(i, 0), before: redescribe(next) } : { parent, index: Math.max(i, 0) }
+  return next
+    ? { parent, index: Math.max(i, 0), before: redescribe(next) }
+    : { parent, index: Math.max(i, 0) }
 }
 
 // ---------------------------------------------------------------------------------------------
 // Descriptor parts
 
-const ATTRS = ["data-testid", "aria-label", "role", "name", "type", "href", "src", "alt", "placeholder", "title"]
+const ATTRS = [
+  "data-testid",
+  "aria-label",
+  "role",
+  "name",
+  "type",
+  "href",
+  "src",
+  "alt",
+  "placeholder",
+  "title",
+]
 
 function ownText(el: Element): string {
   let s = ""
   for (const n of el.childNodes) if (n.nodeType === 3) s += n.nodeValue + " "
   // the last replace drops a surrogate pair cut in half by slice()
-  return s.replace(/\s+/g, " ").trim().slice(0, 80).replace(/[\uD800-\uDBFF]$/, "")
+  return s
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80)
+    .replace(/[\uD800-\uDBFF]$/, "")
 }
 
 function attrsOf(el: Element): Record<string, string> | undefined {
@@ -101,9 +121,16 @@ const MAX_POS = 10_000_000
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/
 
 const cleanString = (x: unknown, max: number): string | undefined =>
-  typeof x === "string" && !CONTROL.test(x) && x.trim() && x.trim().length <= max ? x.trim() : undefined
+  typeof x === "string" &&
+  !CONTROL.test(x) &&
+  x.trim() &&
+  x.trim().length <= max
+    ? x.trim()
+    : undefined
 const cleanInt = (x: unknown): number | undefined =>
-  typeof x === "number" && Number.isInteger(x) && x >= 0 && x <= MAX_POS ? x : undefined
+  typeof x === "number" && Number.isInteger(x) && x >= 0 && x <= MAX_POS
+    ? x
+    : undefined
 
 /**
  * The probe answer travels through a DOM attribute that the page can also write (it can listen for
@@ -113,7 +140,10 @@ const cleanInt = (x: unknown): number | undefined =>
 export function sanitizeHint(raw: unknown): SourceHint | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
   const r = raw as Record<string, unknown>
-  const framework = typeof r.framework === "string" && FRAMEWORKS.includes(r.framework) ? (r.framework as SourceHint["framework"]) : undefined
+  const framework =
+    typeof r.framework === "string" && FRAMEWORKS.includes(r.framework)
+      ? (r.framework as SourceHint["framework"])
+      : undefined
   if (!framework) return undefined
   const hint: SourceHint = { framework }
   const component = cleanString(r.component, MAX_NAME)
@@ -194,19 +224,25 @@ const safe = <T>(f: () => T, fallback: T): T => {
   }
 }
 
-const esc = (s: string) => (typeof CSS !== "undefined" && CSS.escape ? CSS.escape(s) : s)
+const esc = (s: string) =>
+  typeof CSS !== "undefined" && CSS.escape ? CSS.escape(s) : s
 
 const quote = (v: string) =>
   `"${v.replace(/[\\"]/g, "\\$&").replace(/[\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`
 
 function scopeOf(el: Element): Scope | null {
   const root = el.getRootNode()
-  return root.nodeType === 9 || root.nodeType === 11 ? (root as unknown as Scope) : null
+  return root.nodeType === 9 || root.nodeType === 11
+    ? (root as unknown as Scope)
+    : null
 }
 
 /** Element children of any parent. Forms are [LegacyOverrideBuiltIns]: <input name="children"> shadows form.children. */
 function childrenOf(p: ParentNode): Element[] {
-  const get = Object.getOwnPropertyDescriptor(Element.prototype, "children")?.get
+  const get = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "children"
+  )?.get
   return Array.from(p instanceof Element && get ? get.call(p) : p.children)
 }
 
@@ -232,7 +268,11 @@ function anchor(node: Element, scope: Scope): string | null {
 }
 
 /** Path segments from the outermost one down to `el`; `anchored` when the outermost one is an #id / data-testid ancestor. */
-function segments(el: Element, scope: Scope | null, mode: Mode): { segs: string[]; anchored: boolean } {
+function segments(
+  el: Element,
+  scope: Scope | null,
+  mode: Mode
+): { segs: string[]; anchored: boolean } {
   const out: string[] = []
   let anchored = false
   for (let n: Element | null = el; n; n = n.parentElement) {
@@ -251,11 +291,16 @@ function segment(node: Element, mode: Mode): string {
   const parent = node.parentNode
   if (mode === "child") {
     if (!parent) return "*"
-    return parent.nodeType === 9 ? ":root" : `*:nth-child(${childrenOf(parent).indexOf(node) + 1})`
+    return parent.nodeType === 9
+      ? ":root"
+      : `*:nth-child(${childrenOf(parent).indexOf(node) + 1})`
   }
   const tag = esc(node.localName)
   if (!parent) return tag
-  const same = childrenOf(parent).filter((s) => s.localName === node.localName && s.namespaceURI === node.namespaceURI)
+  const same = childrenOf(parent).filter(
+    (s) =>
+      s.localName === node.localName && s.namespaceURI === node.namespaceURI
+  )
   return same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(node) + 1})` : tag
 }
 
@@ -266,7 +311,10 @@ function readable(el: Element, scope: Scope, mode: Mode): string | null {
   if (k === null) return null
   // A unique suffix stays unique when more ancestors are prepended, so any length >= k is safe, in theory:
   // verify anyway (selector engines disagree about :nth-of-type across namespaces) and fall back to the proven k.
-  const n = anchored && segs.length <= MAX_ANCHORED ? segs.length : Math.max(k, Math.min(segs.length, CONTEXT))
+  const n =
+    anchored && segs.length <= MAX_ANCHORED
+      ? segs.length
+      : Math.max(k, Math.min(segs.length, CONTEXT))
   let chosen = segs.slice(-n)
   if (chosen.length > k && chosen[0] === "html") chosen = chosen.slice(1) // "html > body > …" adds nothing
   const wanted = chosen.join(" > ")
@@ -278,7 +326,11 @@ function readable(el: Element, scope: Scope, mode: Mode): string | null {
  * Uniqueness is monotone in the suffix length, so we gallop (1, 2, 4, ...) and then bisect: typical
  * elements cost one or two cheap queries, and a 1000-deep document stays logarithmic.
  */
-function uniqueSuffixLength(el: Element, scope: Scope, segs: string[]): number | null {
+function uniqueSuffixLength(
+  el: Element,
+  scope: Scope,
+  segs: string[]
+): number | null {
   const ok = (k: number) => isOnly(scope, segs.slice(-k).join(" > "), el)
   let lo = 0 // largest length known NOT to be unique
   let hi = 1
