@@ -143,6 +143,33 @@ export function LengthField({
   )
 }
 
+/** Free-text property (font-family): commits as typed, no length normalising or stepping. */
+export function TextStyleField({
+  prop,
+  label,
+}: {
+  prop: StyleProp
+  label: string
+}) {
+  const id = useId()
+  const { d, set } = useStyleDraft(prop)
+  const commit = (text: string) => {
+    const next = text.trim()
+    if (next === "" || sameValue(next, d.current)) return d.cancel()
+    d.commit(next)
+    set(next)
+  }
+  useSettleOnUnmount(d, commit)
+  return (
+    <Field>
+      <FieldLabel htmlFor={id} className={LABEL}>
+        {label}
+      </FieldLabel>
+      <Input id={id} className={INPUT} {...textInputProps(d, commit)} />
+    </Field>
+  )
+}
+
 const SIDES = [
   ["top", "T"],
   ["right", "R"],

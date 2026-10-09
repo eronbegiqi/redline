@@ -50,16 +50,24 @@ describe("settleStyleAttr", () => {
     const get = p.getAttribute.bind(p)
     const rm = p.removeAttribute.bind(p)
     p.getAttribute = (n: string) => (n === "style" && calls.push("get"), get(n))
-    p.removeAttribute = (n: string) => (n === "style" && calls.push("remove"), rm(n))
+    p.removeAttribute = (n: string) => (
+      n === "style" && calls.push("remove"),
+      rm(n)
+    )
     settleStyleAttr(p, null)
     expect(calls).toEqual(["get", "remove"])
   })
 
   it("never throws on elements without a style object", () => {
-    expect(() => settleStyleAttr(document.createElementNS("http://www.w3.org/1999/xhtml", "x-y"), null)).not.toThrow()
+    expect(() =>
+      settleStyleAttr(
+        document.createElementNS("http://www.w3.org/1999/xhtml", "x-y"),
+        null
+      )
+    ).not.toThrow()
   })
 
-  it("restores the original attribute when edits are reverted in any order (real-browser regression: style=\"\" residue)", () => {
+  it('restores the original attribute when edits are reverted in any order (real-browser regression: style="" residue)', () => {
     const p = el("<p>x</p>")
     const orig = styleAttrBefore(p) // edit 1: width
     p.style.width = "1px"

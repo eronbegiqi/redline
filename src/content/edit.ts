@@ -77,26 +77,41 @@ export function setStyle(
   }
 }
 
-/** Replace the text of a text-leaf element (textContent). */
+/** Replace the text of a text-leaf element (textContent), or of its single text node when it also holds icons. */
 export function setText(rec: Recorder, el: Element, text: string): void {
   try {
-    const before = el.textContent ?? ""
+    const kids = Array.from(el.childNodes)
+    // Icon-only element children (svg, img): edit just the text node and leave them alone.
+    const iconsOnly = kids.every(
+      (n) => n.nodeType === 3 || !n.textContent?.trim()
+    )
+    const texts = kids.filter((n) => n.nodeType === 3 && n.nodeValue?.trim())
+    const node =
+      iconsOnly && texts.length === 1 && kids.length > 1
+        ? (texts[0] as Text)
+        : undefined
+    const before = node ? node.data : (el.textContent ?? "")
     if (before === text) return
     const target = describe(el)
     // Keep the original nodes (not clones) so page/framework references to them survive a revert.
-    const saved = Array.from(el.childNodes)
+    const saved = kids
     suppress(() => {
-      el.textContent = text
+      if (node) node.data = text
+      else el.textContent = text
     })
     rec.record({
       kind: "text",
       el: elementId(el),
       target,
-      textNode: 0,
+      textNode: node ? kids.indexOf(node) : 0,
       before,
       after: text,
       origin: "panel",
-      revert: () => suppress(() => el.replaceChildren(...saved)),
+      revert: () =>
+        suppress(() => {
+          if (node) node.data = before
+          else el.replaceChildren(...saved)
+        }),
     })
   } catch {
     // never throw into the page

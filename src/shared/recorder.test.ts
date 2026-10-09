@@ -421,19 +421,18 @@ describe("merge table", () => {
     ["text", text("e1", "a", "b", 0, undefined), text("e1", "b", "a")],
     ["attr", attr("e1", "href", "/a", "/b"), attr("e1", "href", "/b", "/a")],
     ["class", cls("e1", ["x"], []), cls("e1", [], ["x"])],
-    [
-      "move",
-      move("e1", "ul", 0, "ol", 2),
-      move("e1", "ol", 2, "ul", 0),
-    ],
-  ])("cancelling a %s entry also runs its earliest revert only", (_k, first, second) => {
-    const rec = new Recorder()
-    const log: string[] = []
-    rec.record({ ...first, revert: rv(log, "first") })
-    expect(rec.record({ ...second, revert: rv(log, "second") })).toBeNull()
-    expect(rec.list()).toEqual([])
-    expect(log).toEqual(["first"])
-  })
+    ["move", move("e1", "ul", 0, "ol", 2), move("e1", "ol", 2, "ul", 0)],
+  ])(
+    "cancelling a %s entry also runs its earliest revert only",
+    (_k, first, second) => {
+      const rec = new Recorder()
+      const log: string[] = []
+      rec.record({ ...first, revert: rv(log, "first") })
+      expect(rec.record({ ...second, revert: rv(log, "second") })).toBeNull()
+      expect(rec.list()).toEqual([])
+      expect(log).toEqual(["first"])
+    }
+  )
 
   it("a throwing earliest revert on cancel is swallowed and the entry is still dropped", () => {
     const rec = new Recorder()

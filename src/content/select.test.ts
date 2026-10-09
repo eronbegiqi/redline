@@ -1,7 +1,23 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest"
 import { Recorder } from "@/shared/recorder"
 import { startObserving, stopObserving } from "./observe"
-import { clipRect, createSelector, inertAt, isTextLeaf, labelFor, nextSize, type SelectorApi } from "./select"
+import {
+  clipRect,
+  createSelector,
+  inertAt,
+  isTextLeaf,
+  labelFor,
+  nextSize,
+  type SelectorApi,
+} from "./select"
 
 // jsdom has no layout, so boxes/handles/resize drags are verified in real Chromium (see the select-layer
 // harness notes in the PR). Here: the pure helpers plus the event wiring that does not need geometry.
@@ -10,19 +26,30 @@ describe("nextSize", () => {
   const start = { w: 200, h: 100 }
   const both = { x: true, y: true }
   it("changes only the dragged axes", () => {
-    expect(nextSize(start, 30, 99, { x: true, y: false }, false)).toEqual({ w: 230, h: 100 })
-    expect(nextSize(start, 99, 20, { x: false, y: true }, false)).toEqual({ w: 200, h: 120 })
+    expect(nextSize(start, 30, 99, { x: true, y: false }, false)).toEqual({
+      w: 230,
+      h: 100,
+    })
+    expect(nextSize(start, 99, 20, { x: false, y: true }, false)).toEqual({
+      w: 200,
+      h: 120,
+    })
   })
   it("clamps dragged axes to the minimum but never touches an undragged one", () => {
     expect(nextSize(start, -500, -500, both, false)).toEqual({ w: 8, h: 8 })
-    expect(nextSize({ w: 200, h: 4 }, 10, 0, { x: true, y: false }, false)).toEqual({ w: 210, h: 4 })
+    expect(
+      nextSize({ w: 200, h: 4 }, 10, 0, { x: true, y: false }, false)
+    ).toEqual({ w: 210, h: 4 })
   })
   it("keeps the aspect ratio on the corner with shift (larger relative change wins)", () => {
     expect(nextSize(start, 100, 0, both, true)).toEqual({ w: 300, h: 150 })
     expect(nextSize(start, 0, 100, both, true)).toEqual({ w: 400, h: 200 })
   })
   it("ignores shift on an edge handle", () => {
-    expect(nextSize(start, 50, 50, { x: true, y: false }, true)).toEqual({ w: 250, h: 100 })
+    expect(nextSize(start, 50, 50, { x: true, y: false }, true)).toEqual({
+      w: 250,
+      h: 100,
+    })
   })
 })
 
@@ -32,7 +59,9 @@ describe("labelFor", () => {
     return document.body.firstElementChild as Element
   }
   it("tag#id.classes, at most two classes", () => {
-    expect(labelFor(el('<button id="cta" class="a b c">x</button>'))).toBe("button#cta.a.b")
+    expect(labelFor(el('<button id="cta" class="a b c">x</button>'))).toBe(
+      "button#cta.a.b"
+    )
     expect(labelFor(el("<p>x</p>"))).toBe("p")
   })
   it("caps the length", () => {
@@ -73,21 +102,39 @@ describe("createSelector wiring", () => {
   let btn: HTMLElement
 
   const fire = (type: string, target: Element, init: EventInit = {}) => {
-    const e = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, ...init })
+    const e = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      ...init,
+    })
     target.dispatchEvent(e)
     return e
   }
   const click = (target: Element) => {
-    for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) fire(t, target)
+    for (const t of [
+      "pointerdown",
+      "mousedown",
+      "pointerup",
+      "mouseup",
+      "click",
+    ])
+      fire(t, target)
   }
   const key = (k: string, init: KeyboardEventInit = {}) => {
-    const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...init })
+    const e = new KeyboardEvent("keydown", {
+      key: k,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    })
     ;(document.activeElement ?? document.body).dispatchEvent(e)
     return e
   }
 
   beforeEach(() => {
-    document.body.innerHTML = '<button id="b">Go</button><h1 id="h">Hello</h1><p id="m">a <b>b</b></p>'
+    document.body.innerHTML =
+      '<button id="b">Go</button><h1 id="h">Hello</h1><p id="m">a <b>b</b></p>'
     btn = document.getElementById("b")!
     host = document.createElement("div")
     root = host.attachShadow({ mode: "closed" })
@@ -100,7 +147,8 @@ describe("createSelector wiring", () => {
     btn.addEventListener("click", pageClick)
     sel = createSelector({
       root,
-      isOurs: (n) => !!n && (n === host || (n as Node).getRootNode?.() === root),
+      isOurs: (n) =>
+        !!n && (n === host || (n as Node).getRootNode?.() === root),
       rec,
       onSelect,
       onChanged,
@@ -189,7 +237,14 @@ describe("createSelector wiring", () => {
     expect(h.hasAttribute("contenteditable")).toBe(true)
     key("Enter")
     expect(h.hasAttribute("contenteditable")).toBe(false)
-    expect(rec.list()).toMatchObject([{ kind: "text", before: "Hello", after: "Hello there", target: { text: "Hello" } }])
+    expect(rec.list()).toMatchObject([
+      {
+        kind: "text",
+        before: "Hello",
+        after: "Hello there",
+        target: { text: "Hello" },
+      },
+    ])
     expect(onChanged).toHaveBeenCalledTimes(1)
   })
 
@@ -292,16 +347,43 @@ describe("createSelector wiring", () => {
 })
 
 // jsdom has no layout: give elements the geometry a browser would report. Real-Chromium checks cover the integration.
-const box = (el: Element, l: number, t: number, w: number, h: number, client = { w, h }) => {
-  el.getBoundingClientRect = () => ({ left: l, top: t, right: l + w, bottom: t + h, width: w, height: h, x: l, y: t, toJSON() {} }) as DOMRect
-  Object.defineProperty(el, "clientWidth", { value: client.w, configurable: true })
-  Object.defineProperty(el, "clientHeight", { value: client.h, configurable: true })
+const box = (
+  el: Element,
+  l: number,
+  t: number,
+  w: number,
+  h: number,
+  client = { w, h }
+) => {
+  el.getBoundingClientRect = () =>
+    ({
+      left: l,
+      top: t,
+      right: l + w,
+      bottom: t + h,
+      width: w,
+      height: h,
+      x: l,
+      y: t,
+      toJSON() {},
+    }) as DOMRect
+  Object.defineProperty(el, "clientWidth", {
+    value: client.w,
+    configurable: true,
+  })
+  Object.defineProperty(el, "clientHeight", {
+    value: client.h,
+    configurable: true,
+  })
 }
 
 describe("clipRect", () => {
   const setup = (inner = "") => {
     document.body.innerHTML = `<div id="s" style="overflow-y:auto;overflow-x:hidden"><div id="w">${inner}<p id="t">x</p></div></div>`
-    return { s: document.getElementById("s")!, t: document.getElementById("t")! }
+    return {
+      s: document.getElementById("s")!,
+      t: document.getElementById("t")!,
+    }
   }
   it("is null when no ancestor clips", () => {
     document.body.innerHTML = "<div><p id='t'>x</p></div>"
@@ -318,7 +400,12 @@ describe("clipRect", () => {
     document.body.innerHTML = `<div id="a" style="overflow-x:hidden;overflow-y:hidden"><div id="b" style="overflow-x:hidden;overflow-y:hidden"><p id="t">x</p></div></div>`
     box(document.getElementById("a")!, 0, 0, 100, 100)
     box(document.getElementById("b")!, 50, 20, 100, 100)
-    expect(clipRect(document.getElementById("t")!)).toEqual({ l: 50, t: 20, r: 100, b: 100 })
+    expect(clipRect(document.getElementById("t")!)).toEqual({
+      l: 50,
+      t: 20,
+      r: 100,
+      b: 100,
+    })
   })
   it("a fixed element is not clipped; an absolute one skips non-positioned clippers only", () => {
     document.body.innerHTML = `<div id="s" style="overflow-x:hidden;overflow-y:hidden"><p id="f" style="position:fixed">x</p><p id="a" style="position:absolute">y</p></div>`
@@ -327,7 +414,12 @@ describe("clipRect", () => {
     expect(clipRect(document.getElementById("f")!)).toBeNull()
     expect(clipRect(document.getElementById("a")!)).toBeNull()
     s.style.position = "relative"
-    expect(clipRect(document.getElementById("a")!)).toEqual({ l: 0, t: 0, r: 10, b: 10 })
+    expect(clipRect(document.getElementById("a")!)).toEqual({
+      l: 0,
+      t: 0,
+      r: 10,
+      b: 10,
+    })
   })
 })
 

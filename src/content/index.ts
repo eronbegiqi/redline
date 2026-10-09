@@ -37,11 +37,24 @@ const canMutate = (el: Element) => !isRootish(el) && !!el.parentNode
 const classCount = (el: Element) =>
   (el.getAttribute("class") ?? "").split(/\s+/).filter(Boolean).length
 
-/** Only elements made of nothing but text get a text field (setText would wipe any child element). */
-const isTextLeaf = (el: Element) =>
-  el.childNodes.length > 0 &&
-  Array.from(el.childNodes).every((n) => n.nodeType === 3) &&
-  !!el.textContent?.trim()
+/**
+ * The text a text field may edit: the element's only text node when everything else in it is an icon-like child with
+ * no text of its own (svg, img, i...), so a button with a leading icon still qualifies. Null otherwise: setText
+ * would wipe real child elements.
+ */
+const editableText = (el: Element): Text | null => {
+  const kids = Array.from(el.childNodes)
+  const texts = kids.filter(
+    (n): n is Text => n.nodeType === 3 && !!(n as Text).data.trim()
+  )
+  const ok = kids.every(
+    (n) =>
+      n.nodeType === 3 ||
+      (n.nodeType === 1 && !(n as Element).textContent?.trim())
+  )
+  return ok && texts.length === 1 ? texts[0] : null
+}
+const isTextLeaf = (el: Element) => !!editableText(el)
 
 function start(): Redline {
   let alive = true
@@ -95,7 +108,7 @@ function start(): Redline {
         descriptor: describe(el),
         rect: { x: r.x, y: r.y, width: r.width, height: r.height },
         isTextLeaf: leaf,
-        text: leaf ? (el.textContent ?? "").slice(0, 2000) : "",
+        text: leaf ? (editableText(el)?.data ?? "").slice(0, 2000) : "",
         styles: readStyles(el),
         classCount: classCount(el),
         hasParent: !!el.parentElement,

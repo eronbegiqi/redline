@@ -67,19 +67,29 @@ export type ChangeBody =
   /** Element removed from the DOM. */
   | { kind: "delete" }
   /** Element added (duplicate via our UI, or "Edit as HTML"/paste in DevTools). `target` describes the NEW element. */
-  | { kind: "insert"; placement: Placement; html: string; duplicateOf?: Descriptor }
+  | {
+      kind: "insert"
+      placement: Placement
+      html: string
+      duplicateOf?: Descriptor
+    }
 
 export type Change = ChangeBase & ChangeBody
 
-type DistributiveOmit<T, K extends keyof never> = T extends unknown ? Omit<T, K> : never
+type DistributiveOmit<T, K extends keyof never> = T extends unknown
+  ? Omit<T, K>
+  : never
 
 /** What producers hand to Recorder.record(). `revert` undoes the DOM effect of this one change. */
-export type NewChange = DistributiveOmit<Change, "id" | "at"> & { revert?: () => void }
+export type NewChange = DistributiveOmit<Change, "id" | "at"> & {
+  revert?: () => void
+}
 
 /** Computed style props the panel can edit. Content reads these via edit.readStyles(). Kebab-case CSS names. */
 export const STYLE_PROPS = [
   "color",
   "background-color",
+  "font-family",
   "font-size",
   "font-weight",
   "line-height",

@@ -42,6 +42,7 @@ const cta = d(LONG_SELECTOR, "a", {
 const styles: Record<StyleProp, string> = {
   color: "rgb(255, 255, 255)",
   "background-color": "rgb(59, 130, 246)",
+  "font-family": "Geist, ui-sans-serif, system-ui, sans-serif",
   "font-size": "16px",
   "font-weight": "600",
   "line-height": "24px",

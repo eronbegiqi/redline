@@ -455,7 +455,11 @@ describe("descriptor fidelity (the observer sees the element after DevTools edit
     start()
     ;($("h1").firstChild as Text).data = "New title"
     const [c] = await drain()
-    expect(c).toMatchObject({ kind: "text", before: "Old title", after: "New title" })
+    expect(c).toMatchObject({
+      kind: "text",
+      before: "Old title",
+      after: "New title",
+    })
     expect(c.target.text).toBe("Old title")
   })
 
@@ -497,7 +501,8 @@ describe("descriptor fidelity (the observer sees the element after DevTools edit
     const out = await drain()
     expect(out).toHaveLength(3)
     // every change of the element shares the same first-touch picture
-    for (const c of out) expect(c.target.attrs).toEqual({ href: "/old", title: "t" })
+    for (const c of out)
+      expect(c.target.attrs).toEqual({ href: "/old", title: "t" })
   })
 
   it("an attribute edit in a LATER batch still sees the original of a first batch's edit", async () => {
@@ -519,7 +524,12 @@ describe("descriptor fidelity (the observer sees the element after DevTools edit
     p.id = "new"
     const [c, ...rest] = await drain()
     expect(rest).toHaveLength(0)
-    expect(c).toMatchObject({ kind: "attr", name: "id", before: "old", after: "new" })
+    expect(c).toMatchObject({
+      kind: "attr",
+      name: "id",
+      before: "old",
+      after: "new",
+    })
     expect(c.target.selector).toBe("dom:p#old")
     expect(p.id).toBe("new")
     expect(await drain()).toHaveLength(0)
@@ -637,7 +647,9 @@ describe("element removal", () => {
   })
 
   it("reverting that outer delete brings the parent back WITH the earlier-removed child, in place", async () => {
-    html(`<div id="o"><ul id="u"><li id="a">a</li><li id="b">b</li><li id="c">c</li></ul></div>`)
+    html(
+      `<div id="o"><ul id="u"><li id="a">a</li><li id="b">b</li><li id="c">c</li></ul></div>`
+    )
     start()
     const before = $("#o").outerHTML
     $("#b").remove()

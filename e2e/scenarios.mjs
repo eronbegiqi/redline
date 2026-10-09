@@ -54,14 +54,14 @@ export function register(s) {
     await page.waitForTimeout(150) // setPointerCapture is async across processes: a human never moves within 1ms of pressing
     // Human pace: one move per frame. (A burst of 6 instantaneous moves only delivers the first one into the iframe.)
     for (let i = 1; i <= 24; i++) {
-      await page.mouse.move(fb.x + 70 - i * 4.2, fb.y + 22 - i * 5)
+      await page.mouse.move(fb.x + 70 - i * 4.2, fb.y + 22 - i * 2)
       await page.waitForTimeout(16)
     }
     await page.waitForTimeout(150)
     await page.mouse.up()
     await page.waitForTimeout(200)
     const fb2 = await (await panel.frameElement()).boundingBox()
-    assert(Math.abs(fb2.x - (fb.x - 100)) < 10 && Math.abs(fb2.y - (fb.y - 120)) < 10, "header drag moved the frame: " + JSON.stringify([fb, fb2]))
+    assert(Math.abs(fb2.x - (fb.x - 100)) < 10 && Math.abs(fb2.y - (fb.y - 40)) < 10, "header drag moved the frame: " + JSON.stringify([fb, fb2]))
     // still alive after reopen: select works
     await pick(page, "#title")
     assert(await panel.getByText("Welcome to Redline").first().isVisible(), "selection works after reopen")

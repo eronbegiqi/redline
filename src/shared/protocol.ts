@@ -20,7 +20,11 @@ export type ToContent =
   | { type: "setStyle"; el: string; prop: string; value: string }
   /** Replaces text of a text-leaf element. */
   | { type: "setText"; el: string; text: string }
-  | { type: "action"; el: string; action: "delete" | "hide" | "duplicate" | "parent" | "child" | "deselect" }
+  | {
+      type: "action"
+      el: string
+      action: "delete" | "hide" | "duplicate" | "parent" | "child" | "deselect"
+    }
   /** Revert (DOM + log) the last entry. */
   | { type: "undo" }
   /** Revert (DOM + log) one entry by Change.id. */
