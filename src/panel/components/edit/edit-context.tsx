@@ -15,7 +15,7 @@ type Action = Extract<ToContent, { type: "action" }>["action"]
 interface EditCtx {
   info: ElementInfo
   /** Send a style value now. Supersedes a queued preview of the same property. */
-  set: (prop: StyleProp, value: string) => void
+  set: (prop: string, value: string) => void
   /**
    * Live preview while dragging (colour picker, slider): at most one message per animation frame per property, the
    * latest value wins. The last value always goes out: next frame, or sooner via `set` / unmount.
@@ -34,9 +34,9 @@ export function useEdit(): EditCtx {
 }
 
 /** At most one `emit` per frame per property (latest value wins); `flush` emits what is queued right now. */
-function createPreviewQueue(first: (prop: StyleProp, value: string) => void) {
+function createPreviewQueue(first: (prop: string, value: string) => void) {
   let emit = first
-  const queued = new Map<StyleProp, string>()
+  const queued = new Map<string, string>()
   let frame = 0
   const flush = () => {
     cancelAnimationFrame(frame)
@@ -46,14 +46,14 @@ function createPreviewQueue(first: (prop: StyleProp, value: string) => void) {
     for (const [prop, value] of all) emit(prop, value)
   }
   return {
-    add(prop: StyleProp, value: string) {
+    add(prop: string, value: string) {
       queued.set(prop, value)
       frame ||= requestAnimationFrame(flush)
     },
-    drop: (prop: StyleProp) => void queued.delete(prop),
+    drop: (prop: string) => void queued.delete(prop),
     flush,
     /** Later flushes go through the newest sender. */
-    setEmit(next: (prop: StyleProp, value: string) => void) {
+    setEmit(next: (prop: string, value: string) => void) {
       emit = next
     },
   }
@@ -83,7 +83,7 @@ function Scope({
   children: ReactNode
 }) {
   const { el } = info
-  const emit = (prop: StyleProp, value: string) =>
+  const emit = (prop: string, value: string) =>
     send({ type: "setStyle", el, prop, value })
   // The queue outlives renders but must always use the newest `send`.
   const [queue] = useState(() => createPreviewQueue(emit))

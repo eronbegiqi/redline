@@ -32,6 +32,8 @@ its toolbar icon there.
   - *Browse*: the page behaves normally.
 - **Edit tab**: parent/child navigation, Duplicate / Hide / Delete, text, and typography, spacing, size and
   appearance styles.
+- **Comments**: type a "Comment for the AI" on the selected element. It is pinned on the page with a number, listed in
+  the Changes tab (click a row to re-select the element), saved per page across reloads, and exported as that element's Task.
 - **DevTools switch**: off by default. When on, edits you make in DevTools are captured as well.
 - **Changes tab**: revert one change or all of them, add notes for the AI, preview the prompt, then
   **Copy for AI**.

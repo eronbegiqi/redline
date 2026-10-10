@@ -11,6 +11,7 @@ import {
 import { createFrame } from "@/content/frame"
 import { suppress } from "@/content/guard"
 import { startObserving, stopObserving } from "@/content/observe"
+import { createMarkers } from "@/content/markers"
 import { createSelector } from "@/content/select"
 import type { ToContent } from "@/shared/protocol"
 import { Recorder } from "@/shared/recorder"
@@ -148,6 +149,7 @@ function start(): Redline {
         watch()
       }
       frame.post({ type: "state", state: snapshot() })
+      markers.refresh()
     }
 
     // Coalesced per task: a burst of recorder changes / selection updates is one state message.
@@ -253,6 +255,7 @@ function start(): Redline {
       // Hide before touching the layers: whatever they do about a vanished selection, the panel must go away.
       visible = false
       frame.hide()
+      markers.setVisible(false)
       stopObserving()
       watch()
       setMode("browse")
@@ -262,6 +265,7 @@ function start(): Redline {
       if (visible) return
       visible = true
       frame.show()
+      markers.setVisible(true)
       setMode(resumeMode)
       if (recording) startObserving(rec, isOurs)
       watch()
@@ -297,6 +301,23 @@ function start(): Redline {
           }
           case "action":
             act(m.action, m.el)
+            break
+          case "select": {
+            let el = m.el ? target(m.el) : null
+            if (!el && m.selector) {
+              try {
+                el = document.querySelector(m.selector)
+              } catch {
+                // bad selector from a stale comment: nothing to select
+              }
+            }
+            if (!el || isOurs(el)) break
+            setSelected(el)
+            el.scrollIntoView({ block: "center", inline: "nearest" })
+            break
+          }
+          case "markers":
+            markers.set(Array.isArray(m.items) ? m.items : [])
             break
           case "undo":
             suppress(() => rec.undo())
@@ -336,6 +357,9 @@ function start(): Redline {
       onChanged: push,
     })
     cleanups.push(() => selector.destroy())
+
+    const markers = createMarkers(frame.root, isOurs)
+    cleanups.push(() => markers.destroy())
 
     const dragger = createDragger({
       root: frame.root,

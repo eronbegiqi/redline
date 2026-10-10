@@ -10,17 +10,24 @@ import { ChangesTab, type Prompt } from "@/panel/components/ChangesTab"
 import { EditTab } from "@/panel/components/EditTab"
 import { Header } from "@/panel/components/Header"
 import { Walkthrough, hasSeenWalkthrough } from "@/panel/components/Walkthrough"
+import {
+  isPlaceholder,
+  loadComments,
+  placeholderEl,
+  saveComments,
+} from "@/panel/comments"
 import { buildExport } from "@/shared/export"
-import type { PanelState } from "@/shared/types"
+import type { Descriptor, ElementComment, PanelState } from "@/shared/types"
 
-// The timestamp comes from the log (not the clock) so the preview and the copied text are identical.
-function makePrompt({ changes, page }: PanelState, note: string): Prompt {
+function makePrompt(
+  { changes, page }: PanelState,
+  note: string,
+  comments: ElementComment[],
+  slim: boolean
+): Prompt {
   try {
-    const capturedAt = new Date(
-      Math.max(0, ...changes.map((c) => c.at))
-    ).toISOString()
     return {
-      text: buildExport(changes, { page, capturedAt, note: note.trim() }),
+      text: buildExport(changes, { page, note: note.trim(), comments, slim }),
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) }
@@ -52,14 +59,83 @@ export function App() {
   const { state, send } = usePanel()
   const [note, setNote] = useState("")
   const [tour, setTour] = useState(() => !hasSeenWalkthrough())
+  const [comments, setComments] = useState<Record<string, ElementComment>>({})
+  const latest = useRef(comments)
+  const [slim, setSlim] = useState(true)
+  const url = state?.page.url
+  const list = useMemo(() => Object.values(comments), [comments])
   const prompt = useMemo(
-    () => (state ? makePrompt(state, note) : { error: "no state" }),
-    [state, note]
+    () => (state ? makePrompt(state, note, list, slim) : { error: "no state" }),
+    [state, note, list, slim]
   )
+
+  // Every change to the comments goes through here so it is also saved for the next visit to this page.
+  const update = (
+    fn: (prev: Record<string, ElementComment>) => Record<string, ElementComment>
+  ) => {
+    const next = fn(latest.current)
+    if (next === latest.current) return
+    latest.current = next
+    setComments(next)
+    if (url) saveComments(url, Object.values(next))
+  }
+  // Empty text drops the comment.
+  const onComment = (el: string, target: Descriptor, text: string) =>
+    update((prev) => {
+      const next = { ...prev }
+      if (text.trim()) next[el] = { el, target, text }
+      else delete next[el]
+      return next
+    })
+
+  // Restore what was saved for this page (placeholder ids until the element is selected again).
+  useEffect(() => {
+    if (!url) return
+    const saved = loadComments(url)
+    if (saved.length)
+      update((prev) => ({
+        ...Object.fromEntries(saved.map((c) => [c.el, c])),
+        ...prev,
+      }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per page
+  }, [url])
+
+  // Selecting an element that has a restored comment binds the comment to its live id.
+  const selected = state?.selection
+  useEffect(() => {
+    if (!selected) return
+    const placeholder = placeholderEl(selected.descriptor.selector)
+    update((prev) =>
+      !prev[placeholder] || prev[selected.el]
+        ? prev
+        : Object.fromEntries(
+            Object.entries(prev).map(([k, c]) =>
+              k === placeholder
+                ? [selected.el, { ...c, el: selected.el }]
+                : [k, c]
+            )
+          )
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the selection only
+  }, [selected?.el])
+
+  // Pins on the page, numbered like the rows in the Changes tab.
+  const connected = !!state
+  useEffect(() => {
+    if (!connected) return
+    send({
+      type: "markers",
+      items: list.map((c, i) => ({
+        n: i + 1,
+        el: isPlaceholder(c.el) ? undefined : c.el,
+        selector: c.target.selector,
+      })),
+    })
+  }, [connected, list, send])
 
   if (!state) return <Connecting />
 
-  const count = state.changes.length
+  const count = state.changes.length + list.length
   return (
     <TooltipProvider delayDuration={400}>
       <div className="relative flex h-svh flex-col bg-background text-foreground">
@@ -81,7 +157,12 @@ export function App() {
           </div>
           {/* EditTab fills this box (h-full) and scrolls itself; overflow-y-auto here only catches a tab that doesn't. */}
           <TabsContent value="edit" className="min-h-0 overflow-y-auto">
-            <EditTab state={state} send={send} />
+            <EditTab
+              state={state}
+              send={send}
+              comment={comments[state.selection?.el ?? ""]?.text}
+              onComment={onComment}
+            />
           </TabsContent>
           <TabsContent value="changes" className="flex min-h-0 flex-col">
             <ChangesTab
@@ -90,6 +171,10 @@ export function App() {
               note={note}
               onNoteChange={setNote}
               prompt={prompt}
+              comments={list}
+              onComment={onComment}
+              slim={slim}
+              onSlim={setSlim}
             />
           </TabsContent>
         </Tabs>

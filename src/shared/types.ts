@@ -89,15 +89,47 @@ export type NewChange = DistributiveOmit<Change, "id" | "at"> & {
 export const STYLE_PROPS = [
   "color",
   "background-color",
+  "background-image",
   "font-family",
   "font-size",
   "font-weight",
+  "font-style",
   "line-height",
   "letter-spacing",
   "text-align",
+  "text-decoration-line",
+  "text-transform",
+  "white-space",
   "display",
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "z-index",
+  "overflow",
+  "visibility",
+  "flex-direction",
+  "flex-wrap",
+  "justify-content",
+  "align-items",
+  "align-self",
+  "flex-grow",
+  "flex-shrink",
+  "flex-basis",
+  "order",
+  "grid-template-columns",
+  "grid-template-rows",
+  "gap",
   "width",
   "height",
+  "min-width",
+  "max-width",
+  "min-height",
+  "max-height",
+  "box-sizing",
+  "aspect-ratio",
+  "object-fit",
   "padding-top",
   "padding-right",
   "padding-bottom",
@@ -106,12 +138,17 @@ export const STYLE_PROPS = [
   "margin-right",
   "margin-bottom",
   "margin-left",
-  "gap",
   "border-radius",
   "border-width",
   "border-style",
   "border-color",
+  "box-shadow",
   "opacity",
+  "transform",
+  "filter",
+  "transition",
+  "cursor",
+  "pointer-events",
 ] as const
 export type StyleProp = (typeof STYLE_PROPS)[number]
 
@@ -151,4 +188,12 @@ export interface PanelState {
   /** Wire form of the Recorder log (no closures), oldest first. */
   changes: Change[]
   page: PageInfo
+}
+
+/** A "what to do with this" note the user attached to an element. Lives in the panel; exported with the changes. */
+export interface ElementComment {
+  /** ElementInfo.el; matches Change.el so a comment joins that element's changes. */
+  el: string
+  target: Descriptor
+  text: string
 }
