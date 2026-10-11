@@ -18,6 +18,8 @@ npm run build
 
 Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and pick the `dist/`
 folder. After changing code, run `npm run build` again and press the reload icon on the extension card.
+For faster testing run `npm run watch` instead: it rebuilds on every save, and you only refresh the tab and click the
+Redline icon (no reload on `chrome://extensions` unless `src/background.ts` changed).
 
 Permissions are only `activeTab`, `scripting` and `clipboardWrite`: Redline touches a tab only after you click
 its toolbar icon there.
