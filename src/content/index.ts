@@ -13,9 +13,10 @@ import { suppress } from "@/content/guard"
 import { startObserving, stopObserving } from "@/content/observe"
 import { createMarkers } from "@/content/markers"
 import { createSelector } from "@/content/select"
+import { createTools } from "@/content/tools"
 import type { ToContent } from "@/shared/protocol"
 import { Recorder } from "@/shared/recorder"
-import type { ElementInfo, Mode, PanelState } from "@/shared/types"
+import type { ElementInfo, Mode, PanelState, Tool } from "@/shared/types"
 
 // Controller (entry of dist/content.js): owns the state, wires frame <-> recorder <-> selector/dragger/observer.
 // Injected on every toolbar click: the first run builds everything, later runs just toggle the panel.
@@ -25,6 +26,8 @@ interface Redline {
   destroy(): void
 }
 const g = globalThis as typeof globalThis & { __redline?: Redline }
+
+const MODES = new Set<string>(["select", "move", "position", "draw", "browse"])
 
 const isRootish = (el: Element) =>
   el === document.documentElement || el === document.body
@@ -73,6 +76,7 @@ function start(): Redline {
 
   try {
     let mode: Mode = "select"
+    let tool: Tool = "box"
     let resumeMode: Mode = mode // restored when the panel is re-opened
     let recording = false
     let visible = true
@@ -128,6 +132,7 @@ function start(): Redline {
       }
       return {
         mode,
+        tool,
         recording,
         selection,
         changes: rec.list(),
@@ -186,6 +191,7 @@ function start(): Redline {
       mode = next
       selector.setMode(next)
       dragger.setActive(next === "move")
+      tools.setMode(next)
       push()
     }
 
@@ -279,8 +285,14 @@ function start(): Redline {
             flush() // not coalesced: the panel is waiting for its first state
             break
           case "setMode":
-            if (m.mode === "select" || m.mode === "move" || m.mode === "browse")
-              setMode(m.mode)
+            if (MODES.has(m.mode)) setMode(m.mode)
+            break
+          case "setTool":
+            if (m.tool === "box" || m.tool === "text" || m.tool === "button") {
+              tool = m.tool
+              tools.setTool(tool)
+              push()
+            }
             break
           case "setRecording":
             setRecording(!!m.on)
@@ -371,6 +383,19 @@ function start(): Redline {
       },
     })
     cleanups.push(() => dragger.destroy())
+
+    const tools = createTools({
+      root: frame.root,
+      isOurs,
+      rec,
+      onSelect: (el) => {
+        setSelected(el)
+        selector.refresh()
+      },
+      getSelected: () => selected,
+      onDrawn: () => setMode("select"),
+    })
+    cleanups.push(() => tools.destroy())
 
     selector.setMode(mode)
     dragger.setActive(false)

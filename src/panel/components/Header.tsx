@@ -1,10 +1,12 @@
 import { useRef, type PointerEvent } from "react"
 import {
   CircleHelpIcon,
+  CrosshairIcon,
   HandIcon,
   MousePointer2Icon,
   MoveIcon,
   RulerIcon,
+  SquarePlusIcon,
   XIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -24,6 +26,12 @@ import type { Mode } from "@/shared/types"
 const MODES: { value: Mode; label: string; Icon: LucideIcon }[] = [
   { value: "select", label: "Select & edit", Icon: MousePointer2Icon },
   { value: "move", label: "Drag & drop", Icon: MoveIcon },
+  {
+    value: "position",
+    label: "Free position (drag to offset, arrows nudge)",
+    Icon: CrosshairIcon,
+  },
+  { value: "draw", label: "Draw a new element", Icon: SquarePlusIcon },
   { value: "browse", label: "Browse (use the page normally)", Icon: HandIcon },
 ]
 

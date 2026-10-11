@@ -31,6 +31,10 @@ its toolbar icon there.
 - **Header**: drag it to move the panel. The mode switch picks what the page does:
   - *Select & edit*: click selects an element, double-click edits its text, drag the handles to resize.
   - *Drag & drop*: drag an element to reorder it or drop it inside another.
+  - *Free position*: drag an element to offset it (`position: relative` + `left`/`top`); Shift locks the axis, arrow
+    keys nudge by 1px (Shift = 10px).
+  - *Draw*: pick Box, Text or Button, then drag a rectangle on the page. The new element is inserted absolutely at that spot
+    (its container becomes `position: relative`), and the prompt carries its markup.
   - *Browse*: the page behaves normally.
 - **Edit tab**: parent/child navigation, Duplicate / Hide / Delete, text, and typography, spacing, size and
   appearance styles.

@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { copyText, usePanel } from "@/panel/bridge"
 import { ChangesTab, type Prompt } from "@/panel/components/ChangesTab"
 import { EditTab } from "@/panel/components/EditTab"
+import { ToolBar } from "@/panel/components/ToolBar"
 import { Header } from "@/panel/components/Header"
 import { Walkthrough, hasSeenWalkthrough } from "@/panel/components/Walkthrough"
 import {
@@ -140,6 +141,7 @@ export function App() {
     <TooltipProvider delayDuration={400}>
       <div className="relative flex h-svh flex-col bg-background text-foreground">
         <Header state={state} send={send} onHelp={() => setTour(true)} />
+        <ToolBar state={state} send={send} />
 
         <Tabs defaultValue="edit" className="min-h-0 flex-1 gap-0">
           <div className="shrink-0 px-3 py-2">

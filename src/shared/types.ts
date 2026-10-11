@@ -2,7 +2,9 @@
 // Keep this file free of DOM / chrome.* / React imports so it stays unit-testable in plain node.
 // NOTE: tsconfig has `erasableSyntaxOnly` -> no enums, namespaces or parameter properties.
 
-export type Mode = "select" | "move" | "browse"
+export type Mode = "select" | "move" | "position" | "draw" | "browse"
+/** What the Draw mode inserts. */
+export type Tool = "box" | "text" | "button"
 
 /** Best-effort pointer to the source code behind an element (dev builds only). */
 export interface SourceHint {
@@ -182,6 +184,8 @@ export interface PageInfo {
 /** Everything the panel renders from. Pushed by the content script after every change. */
 export interface PanelState {
   mode: Mode
+  /** Element type the Draw mode inserts; "box" when absent. */
+  tool?: Tool
   /** Whether the MutationObserver is capturing DevTools edits. */
   recording: boolean
   selection: ElementInfo | null

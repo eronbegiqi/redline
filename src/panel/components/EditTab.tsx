@@ -35,7 +35,7 @@ import { TextField } from "./edit/TextField"
 const GROUPS = [
   ["typography", "Typography", TypographyGroup],
   ["spacing", "Spacing", SpacingGroup],
-  ["size", "Size", SizeGroup],
+  ["size", "Dimensions", SizeGroup],
   ["layout", "Position & display", LayoutGroup],
   ["flex", "Flex & grid", FlexGroup],
   ["appearance", "Appearance", AppearanceGroup],

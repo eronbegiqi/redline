@@ -1,4 +1,4 @@
-import type { Mode, PanelState } from "./types"
+import type { Mode, PanelState, Tool } from "./types"
 
 // Transport: the content script creates a MessageChannel, posts port2 to the panel iframe
 // (targetOrigin = the extension origin, see content/frame.ts), then both sides talk over the
@@ -19,6 +19,7 @@ export type ToContent =
   /** Panel mounted; content replies with a "state" message. */
   | { type: "ready" }
   | { type: "setMode"; mode: Mode }
+  | { type: "setTool"; tool: Tool }
   | { type: "setRecording"; on: boolean }
   // The three edit messages below carry the id (ElementInfo.el) of the element the edit was made for:
   // a debounced or blur-committed edit can arrive after the selection moved on. Content applies it to THAT

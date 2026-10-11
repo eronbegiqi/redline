@@ -241,6 +241,8 @@ export function createMockStore(
     switch (m.type) {
       case "setMode":
         return set({ mode: m.mode })
+      case "setTool":
+        return set({ tool: m.tool })
       case "setRecording":
         return set({ recording: m.on })
       case "setStyle": {
