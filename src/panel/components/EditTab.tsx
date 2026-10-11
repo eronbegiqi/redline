@@ -16,11 +16,16 @@ import {
 } from "@/components/ui/empty"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { TabProps } from "@/panel/props"
+import type { Descriptor } from "@/shared/types"
 
 import { EditProvider } from "./edit/edit-context"
+import { CommentField } from "./edit/CommentField"
 import { ElementCard } from "./edit/ElementCard"
 import {
   AppearanceGroup,
+  CustomCssGroup,
+  FlexGroup,
+  LayoutGroup,
   SizeGroup,
   SpacingGroup,
   TypographyGroup,
@@ -30,11 +35,20 @@ import { TextField } from "./edit/TextField"
 const GROUPS = [
   ["typography", "Typography", TypographyGroup],
   ["spacing", "Spacing", SpacingGroup],
-  ["size", "Size & layout", SizeGroup],
+  ["size", "Dimensions", SizeGroup],
+  ["layout", "Position & display", LayoutGroup],
+  ["flex", "Flex & grid", FlexGroup],
   ["appearance", "Appearance", AppearanceGroup],
+  ["css", "Custom CSS", CustomCssGroup],
 ] as const
 
-export function EditTab({ state, send }: TabProps) {
+interface Props extends TabProps {
+  /** The comment on the selected element, if any. */
+  comment?: string
+  onComment: (el: string, target: Descriptor, text: string) => void
+}
+
+export function EditTab({ state, send, comment, onComment }: Props) {
   // Lives above the keyed provider so the open groups survive a change of selection.
   const [open, setOpen] = useState<string[]>(["typography", "spacing"])
   const info = state.selection
@@ -65,6 +79,10 @@ export function EditTab({ state, send }: TabProps) {
       <div className="flex h-full flex-col gap-3 overflow-x-hidden overflow-y-auto p-3 contain-inline-size *:min-w-0 *:shrink-0">
         <EditProvider key={info.el} info={info} send={send}>
           <ElementCard />
+          <CommentField
+            value={comment ?? ""}
+            onChange={(text) => onComment(info.el, info.descriptor, text)}
+          />
           {info.isTextLeaf && <TextField />}
           <Accordion type="multiple" value={open} onValueChange={setOpen}>
             {GROUPS.map(([value, title, Group]) => (

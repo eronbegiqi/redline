@@ -3,6 +3,7 @@ import {
   CopyPlusIcon,
   HashIcon,
   HistoryIcon,
+  MessageSquareIcon,
   MoveIcon,
   PaintbrushIcon,
   RotateCcwIcon,
@@ -10,6 +11,7 @@ import {
   Trash2Icon,
   TypeIcon,
   Undo2Icon,
+  XIcon,
   type LucideIcon,
 } from "lucide-react"
 
@@ -39,6 +41,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Tooltip,
@@ -46,8 +49,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import type { TabProps } from "@/panel/props"
+import { isPlaceholder } from "@/panel/comments"
 import { summarize } from "@/panel/summarize"
-import type { Change } from "@/shared/types"
+import type { Change, Descriptor, ElementComment } from "@/shared/types"
 
 /** Result of buildExport, computed once in App so the footer button and the preview agree. */
 export type Prompt = { text: string } | { error: string }
@@ -56,6 +60,11 @@ interface Props extends TabProps {
   note: string
   onNoteChange: (note: string) => void
   prompt: Prompt
+  comments: ElementComment[]
+  onComment: (el: string, target: Descriptor, text: string) => void
+  /** Omit the `Element:` markup line when the source file is known. */
+  slim: boolean
+  onSlim: (on: boolean) => void
 }
 
 const KIND: Record<Change["kind"], { Icon: LucideIcon; label: string }> = {
@@ -68,10 +77,20 @@ const KIND: Record<Change["kind"], { Icon: LucideIcon; label: string }> = {
   insert: { Icon: CopyPlusIcon, label: "Insert" },
 }
 
-export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
+export function ChangesTab({
+  state,
+  send,
+  note,
+  onNoteChange,
+  prompt,
+  comments,
+  onComment,
+  slim,
+  onSlim,
+}: Props) {
   const { changes } = state
 
-  if (!changes.length) {
+  if (!changes.length && !comments.length) {
     return (
       <Empty>
         <EmptyHeader>
@@ -92,10 +111,26 @@ export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
       {/* Radix wraps viewport content in a display:table div that grows to the widest child; force block so `truncate` works. */}
       <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
         <ItemGroup className="gap-0.5 p-2">
+          {comments.map((c, i) => (
+            <CommentRow
+              key={c.el}
+              comment={c}
+              n={i + 1}
+              onSelect={() =>
+                send({
+                  type: "select",
+                  el: isPlaceholder(c.el) ? undefined : c.el,
+                  selector: c.target.selector,
+                })
+              }
+              onRemove={() => onComment(c.el, c.target, "")}
+            />
+          ))}
           {changes.map((c) => (
             <ChangeRow
               key={c.id}
               change={c}
+              onSelect={() => send({ type: "select", el: c.el })}
               onRevert={() => send({ type: "revert", id: c.id })}
             />
           ))}
@@ -118,6 +153,16 @@ export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
             placeholder="e.g. Use the existing Button component, keep it responsive."
             className="min-h-14 text-xs"
           />
+        </Field>
+
+        <Field orientation="horizontal">
+          <Switch id="redline-slim" checked={slim} onCheckedChange={onSlim} />
+          <FieldLabel
+            htmlFor="redline-slim"
+            className="text-xs font-normal text-muted-foreground"
+          >
+            Skip element markup when the source file is known
+          </FieldLabel>
         </Field>
 
         <Accordion type="single" collapsible>
@@ -149,11 +194,73 @@ export function ChangesTab({ state, send, note, onNoteChange, prompt }: Props) {
   )
 }
 
+/** Click (or Enter) selects the element on the page. */
+const pick = (onSelect: () => void) => ({
+  role: "button" as const,
+  tabIndex: 0,
+  onClick: onSelect,
+  onKeyDown: (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") onSelect()
+  },
+})
+
+function CommentRow({
+  comment: c,
+  n,
+  onSelect,
+  onRemove,
+}: {
+  comment: ElementComment
+  n: number
+  onSelect: () => void
+  onRemove: () => void
+}) {
+  return (
+    <Item
+      size="xs"
+      role="listitem"
+      className="flex-nowrap items-start py-1.5 hover:bg-muted/50"
+    >
+      <ItemMedia variant="icon" className="mt-0.5 text-muted-foreground">
+        <MessageSquareIcon aria-hidden />
+        <span className="sr-only">Comment {n}</span>
+      </ItemMedia>
+      <ItemContent
+        className="min-w-0 cursor-pointer"
+        aria-label={`Select element of comment ${n}`}
+        {...pick(onSelect)}
+      >
+        <ItemTitle
+          className="flex w-full min-w-0 font-mono text-xs"
+          title={c.target.selector}
+        >
+          <span className="truncate">{c.target.selector}</span>
+        </ItemTitle>
+        <ItemDescription className="line-clamp-2" title={c.text}>
+          {c.text}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions className="shrink-0">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Remove this comment"
+          onClick={onRemove}
+        >
+          <XIcon />
+        </Button>
+      </ItemActions>
+    </Item>
+  )
+}
+
 function ChangeRow({
   change: c,
+  onSelect,
   onRevert,
 }: {
   change: Change
+  onSelect: () => void
   onRevert: () => void
 }) {
   const { Icon, label } = KIND[c.kind]
@@ -167,7 +274,11 @@ function ChangeRow({
         <Icon aria-hidden />
         <span className="sr-only">{label}</span>
       </ItemMedia>
-      <ItemContent className="min-w-0">
+      <ItemContent
+        className="min-w-0 cursor-pointer"
+        aria-label="Select this element"
+        {...pick(onSelect)}
+      >
         <ItemTitle
           className="flex w-full min-w-0 font-mono text-xs"
           title={c.target.selector}

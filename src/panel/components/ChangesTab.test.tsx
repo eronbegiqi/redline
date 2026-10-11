@@ -41,6 +41,10 @@ function mount(state: PanelState, prompt: Prompt = { text: "# prompt" }) {
           note=""
           onNoteChange={onNoteChange}
           prompt={prompt}
+          comments={[]}
+          onComment={() => {}}
+          slim
+          onSlim={() => {}}
         />
       </TooltipProvider>
     )
@@ -92,6 +96,12 @@ describe("ChangesTab", () => {
     const { send, button, click } = mount(sample())
     click(button("Revert this change"))
     expect(send).toHaveBeenCalledExactlyOnceWith({ type: "revert", id: "c1" })
+  })
+
+  it("clicking a row selects its element on the page", () => {
+    const { send, click } = mount(sample())
+    click(host.querySelector('[aria-label="Select this element"]')!)
+    expect(send).toHaveBeenCalledExactlyOnceWith({ type: "select", el: "e1" })
   })
 
   it("Revert all needs a second, explicit confirmation", () => {

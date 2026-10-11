@@ -159,7 +159,6 @@ describe("App shell", () => {
     })
     expect(build.mock.lastCall?.[1]).toMatchObject({
       note: "use tailwind",
-      capturedAt: expect.stringMatching(/^\d{4}-/),
     })
   })
 

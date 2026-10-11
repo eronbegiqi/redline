@@ -2,7 +2,9 @@
 // Keep this file free of DOM / chrome.* / React imports so it stays unit-testable in plain node.
 // NOTE: tsconfig has `erasableSyntaxOnly` -> no enums, namespaces or parameter properties.
 
-export type Mode = "select" | "move" | "browse"
+export type Mode = "select" | "move" | "position" | "draw" | "browse"
+/** What the Draw mode inserts. */
+export type Tool = "box" | "text" | "button"
 
 /** Best-effort pointer to the source code behind an element (dev builds only). */
 export interface SourceHint {
@@ -89,15 +91,47 @@ export type NewChange = DistributiveOmit<Change, "id" | "at"> & {
 export const STYLE_PROPS = [
   "color",
   "background-color",
+  "background-image",
   "font-family",
   "font-size",
   "font-weight",
+  "font-style",
   "line-height",
   "letter-spacing",
   "text-align",
+  "text-decoration-line",
+  "text-transform",
+  "white-space",
   "display",
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "z-index",
+  "overflow",
+  "visibility",
+  "flex-direction",
+  "flex-wrap",
+  "justify-content",
+  "align-items",
+  "align-self",
+  "flex-grow",
+  "flex-shrink",
+  "flex-basis",
+  "order",
+  "grid-template-columns",
+  "grid-template-rows",
+  "gap",
   "width",
   "height",
+  "min-width",
+  "max-width",
+  "min-height",
+  "max-height",
+  "box-sizing",
+  "aspect-ratio",
+  "object-fit",
   "padding-top",
   "padding-right",
   "padding-bottom",
@@ -106,12 +140,17 @@ export const STYLE_PROPS = [
   "margin-right",
   "margin-bottom",
   "margin-left",
-  "gap",
   "border-radius",
   "border-width",
   "border-style",
   "border-color",
+  "box-shadow",
   "opacity",
+  "transform",
+  "filter",
+  "transition",
+  "cursor",
+  "pointer-events",
 ] as const
 export type StyleProp = (typeof STYLE_PROPS)[number]
 
@@ -145,10 +184,20 @@ export interface PageInfo {
 /** Everything the panel renders from. Pushed by the content script after every change. */
 export interface PanelState {
   mode: Mode
+  /** Element type the Draw mode inserts; "box" when absent. */
+  tool?: Tool
   /** Whether the MutationObserver is capturing DevTools edits. */
   recording: boolean
   selection: ElementInfo | null
   /** Wire form of the Recorder log (no closures), oldest first. */
   changes: Change[]
   page: PageInfo
+}
+
+/** A "what to do with this" note the user attached to an element. Lives in the panel; exported with the changes. */
+export interface ElementComment {
+  /** ElementInfo.el; matches Change.el so a comment joins that element's changes. */
+  el: string
+  target: Descriptor
+  text: string
 }

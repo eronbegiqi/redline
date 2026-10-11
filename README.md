@@ -18,6 +18,8 @@ npm run build
 
 Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and pick the `dist/`
 folder. After changing code, run `npm run build` again and press the reload icon on the extension card.
+For faster testing run `npm run watch` instead: it rebuilds on every save, and you only refresh the tab and click the
+Redline icon (no reload on `chrome://extensions` unless `src/background.ts` changed).
 
 Permissions are only `activeTab`, `scripting` and `clipboardWrite`: Redline touches a tab only after you click
 its toolbar icon there.
@@ -29,9 +31,15 @@ its toolbar icon there.
 - **Header**: drag it to move the panel. The mode switch picks what the page does:
   - *Select & edit*: click selects an element, double-click edits its text, drag the handles to resize.
   - *Drag & drop*: drag an element to reorder it or drop it inside another.
+  - *Free position*: drag an element to offset it (`position: relative` + `left`/`top`); Shift locks the axis, arrow
+    keys nudge by 1px (Shift = 10px).
+  - *Draw*: pick Box, Text or Button, then drag a rectangle on the page. The new element is inserted absolutely at that spot
+    (its container becomes `position: relative`), and the prompt carries its markup.
   - *Browse*: the page behaves normally.
 - **Edit tab**: parent/child navigation, Duplicate / Hide / Delete, text, and typography, spacing, size and
   appearance styles.
+- **Comments**: type a "Comment for the AI" on the selected element. It is pinned on the page with a number, listed in
+  the Changes tab (click a row to re-select the element), saved per page across reloads, and exported as that element's Task.
 - **DevTools switch**: off by default. When on, edits you make in DevTools are captured as well.
 - **Changes tab**: revert one change or all of them, add notes for the AI, preview the prompt, then
   **Copy for AI**.

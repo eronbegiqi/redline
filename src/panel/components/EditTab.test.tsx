@@ -86,9 +86,12 @@ let container: HTMLDivElement
 let root: Root
 let sent: ToContent[]
 const send = (m: ToContent) => void sent.push(m)
+const onComment = vi.fn()
 
 const render = (s: PanelState) =>
-  act(() => root.render(<EditTab state={s} send={send} />))
+  act(() =>
+    root.render(<EditTab state={s} send={send} onComment={onComment} />)
+  )
 
 beforeEach(() => {
   sent = []
@@ -187,9 +190,11 @@ describe("empty and card states", () => {
 
   it("only shows the Text field for text leaves", () => {
     render(state(info()))
-    expect(container.querySelector("textarea")).not.toBeNull()
+    expect(
+      container.querySelector("textarea:not([placeholder])")
+    ).not.toBeNull()
     render(state(info({ isTextLeaf: false, text: "" })))
-    expect(container.querySelector("textarea")).toBeNull()
+    expect(container.querySelector("textarea:not([placeholder])")).toBeNull()
   })
 
   it("sends actions and disables them for html/body", () => {
@@ -211,7 +216,11 @@ describe("empty and card states", () => {
 
   it("leaves a text field that was cut at 2000 chars read-only so it can't be overwritten with the cut copy", () => {
     render(state(info({ text: "x".repeat(2000) })))
-    expect(container.querySelector("textarea")!.disabled).toBe(true)
+    expect(
+      container.querySelector<HTMLTextAreaElement>(
+        "textarea:not([placeholder])"
+      )!.disabled
+    ).toBe(true)
   })
 })
 
@@ -499,7 +508,8 @@ describe("colour fields", () => {
 })
 
 describe("text field", () => {
-  const text = () => container.querySelector("textarea")!
+  const text = () =>
+    container.querySelector<HTMLTextAreaElement>("textarea:not([placeholder])")!
 
   beforeEach(() => vi.useFakeTimers())
 
@@ -615,5 +625,59 @@ describe("opacity slider", () => {
     act(() => button("Appearance").click())
     key(container.querySelector<HTMLElement>('[role="slider"]')!, "ArrowLeft")
     expect(sent).toEqual([style("opacity", "0.99")])
+  })
+})
+
+describe("EditTab: comment and custom CSS", () => {
+  const typeInto = (el: HTMLTextAreaElement, value: string) =>
+    act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value"
+      )!.set!.call(el, value)
+      el.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+  it("reports a comment against the selected element", () => {
+    render(state(info()))
+    const ta = container.querySelector<HTMLTextAreaElement>(
+      "textarea[placeholder^='e.g. Make']"
+    )!
+    typeInto(ta, "make it primary")
+    expect(onComment).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.objectContaining({ selector: expect.any(String) }),
+      "make it primary"
+    )
+  })
+
+  it("applies every declaration typed into Custom CSS", () => {
+    render(state(info()))
+    act(() =>
+      [...container.querySelectorAll("button")]
+        .find((b) => b.textContent === "Custom CSS")!
+        .click()
+    )
+    typeInto(
+      container.querySelector<HTMLTextAreaElement>("#redline-custom-css")!,
+      "mix-blend-mode: multiply; outline: 2px solid red;"
+    )
+    act(() =>
+      [...container.querySelectorAll("button")]
+        .find((b) => b.textContent === "Apply")!
+        .click()
+    )
+    expect(sent).toEqual([
+      expect.objectContaining({
+        type: "setStyle",
+        prop: "mix-blend-mode",
+        value: "multiply",
+      }),
+      expect.objectContaining({
+        type: "setStyle",
+        prop: "outline",
+        value: "2px solid red",
+      }),
+    ])
   })
 })

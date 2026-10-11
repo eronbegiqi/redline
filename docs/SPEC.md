@@ -91,20 +91,19 @@ Special cases:
 Deterministic Markdown (no clock, no randomness). Structure:
 
 ```
-# Redline: UI changes to apply
+# Redline: UI changes
 
 **Page:** {title} - {url}
-**Viewport:** {w}×{h} · **Last change:** {capturedAt}
 
-Apply the changes below to this page's source code. Find each element using its component/source hint, selector or text.
-Values are computed CSS from the live page: translate them into the project's own styling approach (Tailwind classes, CSS modules,
-styled-components, …) instead of adding inline styles, and keep the result responsive.
+Apply these UI changes to the source. Locate each element by its component/source hint, selector or text. ... (short fixed preamble)
 
 ## Notes            <- only when meta.note is non-empty
 {note}
 
 ## Changes
 ### 1. `{selector}` "{text…}"  - React: Hero › CtaButton · src/Hero.tsx:42
+Element: `<button id="cta" class="btn">`
+**Task:** {the user's comment on this element}      <- only when commented
 - **Style** `background-color`: `rgb(0, 0, 0)` → `rgb(59, 130, 246)`
 - **Text**: "Get started" → "Start free"
 - **Class**: added `is-active`, removed `muted`
@@ -114,8 +113,8 @@ styled-components, …) instead of adding inline styles, and keep the result res
 - **Insert** (copy of `li.item`) at index 4 in `ul.list`: `<li class="item">…</li>`
 ```
 
-Rules: one `###` block per distinct `el`, numbered in order of the element's first change; bullets in log order. Missing `before` renders
-`(unset inline / from stylesheet)`; `after: null` renders `(removed)`. Truncate long strings (text 120, html 400) with `…`. Escape backticks inside
+Rules: one `###` block per distinct `el`: elements with changes first (order of first change), then comment-only elements. Bullets in log order.
+Missing `before` renders `(unset inline / from stylesheet)`; `after: null` renders `(removed)`. Truncate long strings (text 120, html 400, task 1000) with `…`. Escape backticks inside
 inline code. Header line omits parts that don't exist (no source hint -> no `- React:` suffix). A `devtools` origin entry gets a trailing ` _(DevTools)_`.
 Empty change list -> a short "No changes recorded." document.
 

@@ -8,6 +8,7 @@ import type {
   PanelState,
   StyleProp,
 } from "@/shared/types"
+import { STYLE_PROPS } from "@/shared/types"
 
 // Fake page state for `npm run dev` at /panel.html (not embedded). `send` applies a rough version of what the
 // content script would do. Variants: ?mock=empty (nothing selected, no changes), ?mock=many (40 changes).
@@ -39,7 +40,21 @@ const cta = d(LONG_SELECTOR, "a", {
   },
 })
 
-const styles: Record<StyleProp, string> = {
+const styles = {
+  ...(Object.fromEntries(STYLE_PROPS.map((p) => [p, "none"])) as Record<
+    StyleProp,
+    string
+  >),
+  "z-index": "auto",
+  "flex-grow": "0",
+  "flex-shrink": "1",
+  order: "0",
+  opacity: "1",
+  position: "static",
+  overflow: "visible",
+  visibility: "visible",
+  "box-sizing": "border-box",
+  cursor: "pointer",
   color: "rgb(255, 255, 255)",
   "background-color": "rgb(59, 130, 246)",
   "font-family": "Geist, ui-sans-serif, system-ui, sans-serif",
@@ -64,7 +79,6 @@ const styles: Record<StyleProp, string> = {
   "border-width": "0px",
   "border-style": "none",
   "border-color": "rgb(255, 255, 255)",
-  opacity: "1",
 }
 
 const selection: ElementInfo = {
@@ -227,6 +241,8 @@ export function createMockStore(
     switch (m.type) {
       case "setMode":
         return set({ mode: m.mode })
+      case "setTool":
+        return set({ tool: m.tool })
       case "setRecording":
         return set({ recording: m.on })
       case "setStyle": {
